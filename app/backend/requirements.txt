@@ -1,0 +1,9 @@
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+pydantic==2.10.4
+python-dotenv==1.0.1
+# KnowIT engine extras (optional accelerators)
+litellm==1.55.4
+chromadb==0.5.23
+# Media tab: slide-deck (.pptx) export needs python-pptx (engine imports it lazily)
+python-pptx>=0.6.23

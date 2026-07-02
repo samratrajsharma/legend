@@ -1,0 +1,1296 @@
+"""Know Your Code testbed backend — thin FastAPI wrapper over the existing
+KnowIT engine. Full surface: every Streamlit tab has a REST endpoint here.
+"""
+from __future__ import annotations
+
+import os
+import sys
+import hashlib
+import threading
+import traceback
+from pathlib import Path
+from typing import Any, Optional
+
+from fastapi import FastAPI, HTTPException, Query
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse, HTMLResponse
+from pydantic import BaseModel
+
+# ── Engine import ────────────────────────────────────────────────
+HERE = Path(__file__).resolve().parent
+ENGINE_ROOT = (HERE / ".." / ".." / "engine").resolve()
+if str(ENGINE_ROOT) not in sys.path:
+    sys.path.insert(0, str(ENGINE_ROOT))
+
+# ── codemap import (separate standalone tool) ────────────────────
+# Lives at <repo-root>/know-your-code/diagrams/codemap/codemap.py. We add its folder to
+# sys.path so the script's top-level functions are importable.
+CODEMAP_ROOT = (HERE / ".." / ".." / "diagrams" / "codemap").resolve()
+if str(CODEMAP_ROOT) not in sys.path:
+    sys.path.insert(0, str(CODEMAP_ROOT))
+
+from knowit.config import Config         # type: ignore
+from knowit.pipeline import build_index  # type: ignore
+from knowit.retrieval import assemble_context  # type: ignore
+from knowit import (                      # type: ignore
+    insights, providers as engine_providers,
+    teach, track, techdebt, engmemory, media, research, portfolio,
+    impact, coverage, config_map, eval_harness, progress as kyc_progress,
+)
+
+# codemap is a single-file stdlib script — defensive import in case the folder
+# isn't present. We also stash the load error so the diagnostic endpoint can
+# show it to the frontend.
+_CODEMAP_LOAD_ERROR: Optional[str] = None
+try:
+    import codemap as cmap  # type: ignore
+    # Sanity-check the API we depend on.
+    if not (hasattr(cmap, "build") and hasattr(cmap, "render_html")):
+        raise ImportError(
+            f"codemap loaded from {getattr(cmap, '__file__', '?')} but is missing build() / render_html()."
+        )
+    CODEMAP_AVAILABLE = True
+except Exception as _cmap_err:
+    cmap = None
+    CODEMAP_AVAILABLE = False
+    _CODEMAP_LOAD_ERROR = (
+        f"{type(_cmap_err).__name__}: {_cmap_err}\n"
+        f"Searched path: {CODEMAP_ROOT} (exists={CODEMAP_ROOT.exists()})"
+    )
+
+
+# ── App + CORS ───────────────────────────────────────────────────
+app = FastAPI(title="Know Your Code (testbed)", version="0.2.0")
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:5273", "http://127.0.0.1:5273"],
+    allow_credentials=False, allow_methods=["*"], allow_headers=["*"],
+)
+
+# ── In-memory repo registry ──────────────────────────────────────
+_REPOS: dict[str, dict[str, Any]] = {}
+_REPOS_LOCK = threading.Lock()
+
+def _repo_id(source: str) -> str:
+    return hashlib.sha1(source.encode("utf-8")).hexdigest()[:12]
+
+def _engine_config() -> Config:
+    data_dir = os.environ.get("KNOWIT_DATA_DIR", str(HERE / ".cache"))
+    cfg = Config(data_dir=data_dir)
+    provider = os.environ.get("KNOWIT_LLM_PROVIDER", "").strip()
+    model    = os.environ.get("KNOWIT_LLM_MODEL", "").strip()
+    base_url = os.environ.get("KNOWIT_LLM_BASE_URL", "").strip()
+    if provider and model:
+        full, extra = engine_providers.resolve(provider, model, base_url)
+        cfg.llm_model = full; cfg.llm_kwargs = extra
+    elif model:
+        cfg.llm_model = model
+    return cfg
+
+
+def _sync_llm_config(idx) -> None:
+    """Bridge the live LLM config into an already-built index. idx.config is
+    captured when the repo is connected, so configuring a model afterwards (via
+    the Settings page) would not reach Ask / Explain without this. Mutates in
+    place so the next idx.ask() / explain uses the current provider+model."""
+    try:
+        live = _engine_config()
+        idx.config.llm_model = live.llm_model
+        idx.config.llm_kwargs = getattr(live, "llm_kwargs", {}) or {}
+    except Exception:
+        pass
+
+
+# ── Schemas ──────────────────────────────────────────────────────
+class ConnectRepoRequest(BaseModel): source: str
+class ConnectRepoResponse(BaseModel):
+    repo_id: str; name: str; commit: str; status: str
+class RepoListItem(BaseModel):
+    repo_id: str; name: str; commit: str; source: str; status: str
+class AskRequest(BaseModel):
+    question: str
+    provider: str = ""
+    model: str = ""
+    base_url: str = ""
+class EngMemoryAddRequest(BaseModel):
+    kind: str          # decisions | errors | memory
+    title: str
+    body: str = ""
+class FlashcardReviewRequest(BaseModel):
+    card_id: str
+    correct: bool
+class SnapshotDiffRequest(BaseModel):
+    base_commit: str
+    head_commit: str
+class EvalRequest(BaseModel):
+    questions: list[dict]   # [{question, expected_keywords}]
+
+
+# ── Helpers ──────────────────────────────────────────────────────
+def _require_idx(rid: str):
+    with _REPOS_LOCK:
+        slot = _REPOS.get(rid)
+    if not slot: raise HTTPException(404, "Unknown repo_id")
+    if slot.get("status") != "ready":
+        raise HTTPException(409, f"Repo not ready (status={slot.get('status')})")
+    idx = slot.get("idx")
+    if not idx: raise HTTPException(500, "Index missing")
+    return idx
+
+
+# ── Routes: health, repos ───────────────────────────────────────
+@app.get("/healthz")
+def health() -> dict:
+    return {"status": "ok", "engine_root": str(ENGINE_ROOT)}
+
+@app.get("/api/v1/llm-status")
+def llm_status() -> dict:
+    cfg = _engine_config()
+    return {
+        "configured": bool(cfg.llm_model),
+        "model": cfg.llm_model or None,
+        "provider": os.environ.get("KNOWIT_LLM_PROVIDER", "") or None,
+    }
+
+
+# ── LLM configuration (in-app AI settings space) ─────────────────
+class LlmConfigRequest(BaseModel):
+    provider: str = ""
+    model: str = ""
+    base_url: str = ""
+    api_key: str = ""   # optional; stored under the provider's key env
+
+
+class LlmTestRequest(BaseModel):
+    provider: str = ""
+    model: str = ""
+    base_url: str = ""
+    api_key: str = ""
+
+
+def _persist_env(updates: dict) -> None:
+    """Upsert KEY=VALUE lines in backend/.env so config survives a restart."""
+    env_path = HERE / ".env"
+    lines = env_path.read_text(encoding="utf-8").splitlines() if env_path.exists() else []
+    seen, out = set(), []
+    for ln in lines:
+        parts = ln.split("=", 1)
+        if len(parts) == 2 and parts[0].strip() in updates:
+            k = parts[0].strip()
+            out.append(f"{k}={updates[k]}")
+            seen.add(k)
+        else:
+            out.append(ln)
+    for k, v in updates.items():
+        if k not in seen:
+            out.append(f"{k}={v}")
+    env_path.write_text("\n".join(out).rstrip("\n") + "\n", encoding="utf-8")
+
+
+def _load_model_profiles() -> list:
+    """Saved model roster (list of {provider, model, base_url}) from env JSON."""
+    import json as _json
+    raw = os.environ.get("KNOWIT_LLM_MODELS", "").strip()
+    if not raw:
+        return []
+    try:
+        data = _json.loads(raw)
+        return [m for m in data if isinstance(m, dict)] if isinstance(data, list) else []
+    except Exception:
+        return []
+
+
+class ModelsSaveRequest(BaseModel):
+    models: list = []          # [{provider, model, base_url, api_key?}]
+    default_index: int = 0
+
+
+@app.get("/api/v1/llm/models")
+def llm_models() -> dict:
+    """The saved model roster, for the per-run pickers and Settings."""
+    cur_p = os.environ.get("KNOWIT_LLM_PROVIDER", "")
+    cur_m = os.environ.get("KNOWIT_LLM_MODEL", "")
+    out = []
+    for m in _load_model_profiles():
+        prov = (m.get("provider") or ""); mod = (m.get("model") or ""); bu = (m.get("base_url") or "")
+        full, _extra = engine_providers.resolve(prov, mod, bu)
+        label = (engine_providers.PROVIDERS.get(prov, {}).get("label") or prov or "?")
+        out.append({
+            "provider": prov, "model": mod, "base_url": bu, "full": full,
+            "label": f"{label}: {mod}",
+            "key_present": engine_providers.key_present(prov),
+            "is_default": (prov == cur_p and mod == cur_m),
+        })
+    return {"models": out, "default": {"provider": cur_p or None, "model": cur_m or None}}
+
+
+@app.post("/api/v1/llm/models")
+def llm_save_models(req: ModelsSaveRequest) -> dict:
+    """Replace the saved roster; store any provided keys per provider; set the
+    default (which also drives _engine_config and anything not overridden)."""
+    import json as _json
+    clean, updates = [], {}
+    for m in req.models:
+        prov = (m.get("provider") or "").strip()
+        mod = (m.get("model") or "").strip()
+        bu = (m.get("base_url") or "").strip()
+        if not (prov and mod):
+            continue
+        key = (m.get("api_key") or "").strip()
+        pr = engine_providers.PROVIDERS.get(prov)
+        if key and pr and pr.get("key_env"):
+            updates[pr["key_env"]] = key
+        clean.append({"provider": prov, "model": mod, "base_url": bu})
+    updates["KNOWIT_LLM_MODELS"] = _json.dumps(clean, separators=(",", ":"))
+    di = req.default_index if 0 <= req.default_index < len(clean) else 0
+    if clean:
+        d = clean[di]
+        updates["KNOWIT_LLM_PROVIDER"] = d["provider"]
+        updates["KNOWIT_LLM_MODEL"] = d["model"]
+        updates["KNOWIT_LLM_BASE_URL"] = d.get("base_url", "")
+    else:
+        updates["KNOWIT_LLM_PROVIDER"] = ""
+        updates["KNOWIT_LLM_MODEL"] = ""
+        updates["KNOWIT_LLM_BASE_URL"] = ""
+    for k, v in updates.items():
+        if v:
+            os.environ[k] = v
+        else:
+            os.environ.pop(k, None)
+    _persist_env(updates)
+    return llm_models()
+
+
+@app.get("/api/v1/llm/providers")
+def llm_providers() -> dict:
+    """The provider registry, for the settings UI to render."""
+    out = []
+    for pid in engine_providers.ORDER:
+        if not pid:
+            continue
+        pr = engine_providers.PROVIDERS.get(pid)
+        if not pr:
+            continue
+        out.append({
+            "id": pid,
+            "label": pr["label"],
+            "models": pr.get("models", []),
+            "needs_base_url": bool(pr.get("base_url")),
+            "default_base": pr.get("default_base", ""),
+            "key_env": pr.get("key_env", ""),
+            "key_present": engine_providers.key_present(pid),
+        })
+    return {
+        "providers": out,
+        "current": {
+            "provider": os.environ.get("KNOWIT_LLM_PROVIDER", "") or None,
+            "model": os.environ.get("KNOWIT_LLM_MODEL", "") or None,
+            "base_url": os.environ.get("KNOWIT_LLM_BASE_URL", "") or None,
+        },
+    }
+
+
+@app.get("/api/v1/llm/ollama-models")
+def llm_ollama_models(base_url: str = "") -> dict:
+    """List models actually installed in a local Ollama (its /api/tags)."""
+    import json as _json
+    import urllib.request
+    base = (base_url or os.environ.get("KNOWIT_LLM_BASE_URL", "")
+            or "http://localhost:11434").rstrip("/")
+    try:
+        with urllib.request.urlopen(base + "/api/tags", timeout=5) as resp:
+            data = _json.loads(resp.read().decode("utf-8"))
+        models = [m.get("name") for m in data.get("models", []) if m.get("name")]
+        return {"ok": True, "base_url": base, "models": models}
+    except Exception as exc:
+        return {"ok": False, "base_url": base, "models": [],
+                "error": f"{type(exc).__name__}: {exc}"}
+
+
+@app.post("/api/v1/llm/test")
+def llm_test(req: LlmTestRequest) -> dict:
+    """Run a tiny round-trip to verify a provider/model (or the current config)."""
+    provider, model = req.provider.strip(), req.model.strip()
+    if model:
+        pr = engine_providers.PROVIDERS.get(provider)
+        if req.api_key.strip() and pr and pr.get("key_env"):
+            os.environ[pr["key_env"]] = req.api_key.strip()
+        full, extra = engine_providers.resolve(provider, model, req.base_url.strip())
+    else:
+        cfg = _engine_config()
+        full, extra = cfg.llm_model, getattr(cfg, "llm_kwargs", {})
+    if not full:
+        return {"ok": False, "message": "No model configured", "model": None}
+    ok, msg = engine_providers.test_connection(full, extra)
+    return {"ok": ok, "message": msg, "model": full}
+
+
+@app.post("/api/v1/llm/config")
+def llm_set_config(req: LlmConfigRequest) -> dict:
+    """Set the LLM config: apply at runtime AND persist to .env, then test."""
+    provider, model, base_url = req.provider.strip(), req.model.strip(), req.base_url.strip()
+    updates = {
+        "KNOWIT_LLM_PROVIDER": provider,
+        "KNOWIT_LLM_MODEL": model,
+        "KNOWIT_LLM_BASE_URL": base_url,
+    }
+    pr = engine_providers.PROVIDERS.get(provider)
+    if req.api_key.strip() and pr and pr.get("key_env"):
+        updates[pr["key_env"]] = req.api_key.strip()
+    # apply to the live process (so _engine_config picks it up with no restart)
+    for k, v in updates.items():
+        if v:
+            os.environ[k] = v
+        else:
+            os.environ.pop(k, None)
+    _persist_env(updates)
+    full, extra = engine_providers.resolve(provider, model, base_url)
+    ok, msg = engine_providers.test_connection(full, extra) if full else (False, "no model configured")
+    cfg = _engine_config()
+    return {
+        "configured": bool(cfg.llm_model),
+        "model": cfg.llm_model or None,
+        "provider": provider or None,
+        "test_ok": ok,
+        "test_message": msg,
+    }
+
+def _name_from_source(src: str) -> str:
+    s = src.rstrip("/").replace("\\", "/")
+    name = s.split("/")[-1]
+    return name[:-4] if name.endswith(".git") else (name or src)
+
+
+def _pct_for(msg: str, cur: int) -> int:
+    """Map an engine progress message to a rough %, monotonic (never goes back)."""
+    m = (msg or "").lower()
+    pct = cur
+    for key, val in (
+        ("ingest", 8), ("clon", 8), ("loading cached", 28),
+        ("parsing", 38), ("graph", 60), ("chunk", 72),
+        ("retriever", 88), ("done", 100),
+    ):
+        if key in m:
+            pct = max(pct, val)
+    return pct
+
+
+def _index_worker(rid: str, src: str, cfg: Config) -> None:
+    """Build the index in a background thread, streaming progress into _REPOS so
+    GET /repos/{rid}/status can report it. Failures are recorded (status=error)
+    rather than lost, so the UI can show why."""
+    def prog(msg):
+        with _REPOS_LOCK:
+            s = _REPOS.get(rid)
+            if s is not None:
+                s["message"] = msg
+                s["pct"] = _pct_for(msg, int(s.get("pct", 0)))
+    try:
+        idx = build_index(src, cfg, progress=prog)
+        with _REPOS_LOCK:
+            _REPOS[rid] = {"meta": idx.meta, "source": src, "status": "ready",
+                           "error": None, "idx": idx, "pct": 100, "message": "Done"}
+    except Exception as e:
+        with _REPOS_LOCK:
+            _REPOS[rid] = {"source": src, "status": "error", "error": str(e),
+                           "pct": 0, "message": "Failed", "name": _name_from_source(src)}
+
+
+@app.post("/api/v1/repos", response_model=ConnectRepoResponse)
+def connect_repo(req: ConnectRepoRequest) -> ConnectRepoResponse:
+    """Kick off indexing in the background and return immediately with
+    status=indexing; the frontend polls GET /repos/{rid}/status. A repo that's
+    already ready is returned instantly; an in-flight one is not restarted."""
+    src = req.source.strip()
+    if not src:
+        raise HTTPException(400, "Provide a folder path or git URL.")
+    rid = _repo_id(src)
+    cfg = _engine_config()
+    # Friendly pre-check for local paths (git URLs are fetched by the engine).
+    is_remote = src.startswith(("http://", "https://", "git@")) or src.endswith(".git")
+    if not is_remote and not Path(src).is_dir():
+        raise HTTPException(
+            400,
+            f"That folder doesn't exist or isn't a directory — it may have been moved "
+            f"or deleted. Check the path: {src}",
+        )
+    with _REPOS_LOCK:
+        slot = _REPOS.get(rid)
+        if slot and slot.get("status") == "ready" and slot.get("idx") is not None:
+            meta = slot["idx"].meta
+            return ConnectRepoResponse(repo_id=rid, name=meta.name,
+                                       commit=(meta.commit or "")[:12], status="ready")
+        if slot and slot.get("status") == "indexing":
+            return ConnectRepoResponse(repo_id=rid, name=slot.get("name") or _name_from_source(src),
+                                       commit="", status="indexing")
+        _REPOS[rid] = {"source": src, "status": "indexing", "error": None,
+                       "pct": 0, "message": "Queued…", "name": _name_from_source(src)}
+    threading.Thread(target=_index_worker, args=(rid, src, cfg), daemon=True).start()
+    return ConnectRepoResponse(repo_id=rid, name=_name_from_source(src),
+                               commit="", status="indexing")
+
+
+@app.get("/api/v1/repos/{rid}/status")
+def repo_status(rid: str) -> dict:
+    """Poll target for the connect flow: {status: indexing|ready|error, pct, message, error}."""
+    with _REPOS_LOCK:
+        slot = _REPOS.get(rid)
+        if not slot:
+            raise HTTPException(404, "Unknown repo_id")
+        meta = slot.get("meta")
+        return {
+            "repo_id": rid,
+            "status": slot.get("status", "unknown"),
+            "pct": int(slot.get("pct", 0)),
+            "message": slot.get("message", ""),
+            "error": slot.get("error"),
+            "name": (meta.name if meta else slot.get("name", "")),
+            "commit": ((meta.commit or "")[:12] if meta else ""),
+        }
+
+@app.get("/api/v1/repos", response_model=list[RepoListItem])
+def list_repos() -> list[RepoListItem]:
+    out: list[RepoListItem] = []
+    with _REPOS_LOCK:
+        for rid, slot in _REPOS.items():
+            meta = slot.get("meta")
+            out.append(RepoListItem(
+                repo_id=rid, name=(meta.name if meta else rid),
+                commit=((meta.commit or "")[:12] if meta else ""),
+                source=slot.get("source", ""), status=slot.get("status", "unknown")))
+    return out
+
+
+@app.delete("/api/v1/repos/{rid}", status_code=204, response_model=None)
+def disconnect_repo(rid: str):
+    """Remove a repo from the in-memory list (e.g. after its folder is gone)."""
+    with _REPOS_LOCK:
+        _REPOS.pop(rid, None)
+
+
+# ── Overview, Files ─────────────────────────────────────────────
+@app.get("/api/v1/repos/{rid}/overview")
+def repo_overview(rid: str) -> dict:
+    idx = _require_idx(rid)
+    return {
+        "stats": idx.stats(),
+        "insights": insights.repo_insights(idx),
+        "languages": insights.language_breakdown(idx),
+        "config_surface": config_map.config_surface(idx),
+    }
+
+@app.get("/api/v1/repos/{rid}/files")
+def repo_files(rid: str) -> dict:
+    idx = _require_idx(rid)
+    return {
+        "files": [p.file for p in idx.parsed_files],
+        "by_language": {
+            lang: [p.file for p in idx.parsed_files if p.language == lang]
+            for lang in {p.language for p in idx.parsed_files}
+        },
+    }
+
+def _find_parsed_file(idx, file: str):
+    """Find a ParsedFile tolerant of path-format differences. The codemap tool
+    and the engine can format the same file differently (separators, a leading
+    ./, or a repo-name prefix), so exact == matching misses. Fall back to a
+    normalized match, then a unique suffix/basename match."""
+    if not file:
+        return None
+    def norm(s: str) -> str:
+        return s.replace("\\", "/").lstrip("./")
+    target = norm(file)
+    files = idx.parsed_files
+    for p in files:                              # exact
+        if p.file == file:
+            return p
+    for p in files:                              # normalized exact
+        if norm(p.file) == target:
+            return p
+    cands = [p for p in files                    # suffix, either direction
+             if norm(p.file).endswith("/" + target) or target.endswith("/" + norm(p.file))]
+    if len(cands) == 1:
+        return cands[0]
+    base = target.rsplit("/", 1)[-1]             # unique basename
+    bcands = [p for p in files if norm(p.file).rsplit("/", 1)[-1] == base]
+    if len(bcands) == 1:
+        return bcands[0]
+    return None
+
+
+@app.get("/api/v1/repos/{rid}/files/summary")
+def file_summary(rid: str, file: str) -> dict:
+    idx = _require_idx(rid)
+    pf = _find_parsed_file(idx, file)
+    fs = insights.file_summary(idx, pf.file) if pf else None
+    if not fs: raise HTTPException(404, "File not found in index")
+    return fs
+
+@app.get("/api/v1/repos/{rid}/files/content")
+def file_content(rid: str, file: str) -> dict:
+    idx = _require_idx(rid)
+    pf = _find_parsed_file(idx, file)
+    if not pf: raise HTTPException(404, "File not found in index")
+    return {"file": pf.file, "language": pf.language, "loc": pf.loc, "text": pf.text}
+
+
+# ── Graph nodes ─────────────────────────────────────────────────
+# Kept because the Intel/Impact subtab needs the list of symbols to populate
+# its picker. The richer per-view diagram endpoints (mindmap / class / etc.)
+# were removed — codemap is the only Diagrams visualization now.
+@app.get("/api/v1/repos/{rid}/graph/nodes")
+def graph_nodes(rid: str) -> dict:
+    idx = _require_idx(rid)
+    return {"nodes": list(idx.graph.nodes.keys())}
+
+
+# ── codemap: rich interactive architecture HTML ──────────────────
+# Per-repo cache so repeated views are instant. Re-generated on demand by
+# adding ?refresh=1 to the URL.
+_CODEMAP_CACHE: dict[str, dict[str, Any]] = {}
+
+
+def _codemap_html_for(idx, embed_src: bool = True, max_src_kb: int = 200) -> dict:
+    """Run codemap on the indexed repo path. Returns
+    {html, stats: {files, loc, areas, edges, depth}}.
+    Any exception surfaces as a 5xx with the actual cause."""
+    if not CODEMAP_AVAILABLE:
+        raise HTTPException(503, f"codemap is not loadable. {_CODEMAP_LOAD_ERROR}")
+    repo_path = Path(idx.meta.path)
+    if not repo_path.exists():
+        raise HTTPException(404, f"Repo path no longer exists on disk: {repo_path}")
+    try:
+        exts = set(cmap.DEFAULT_EXT)
+        mods, edges, depth = cmap.build(repo_path, exts, 0)
+        html, stats = cmap.render_html(
+            mods, edges, depth, idx.meta.name,
+            embed=embed_src, max_src=max_src_kb * 1000,
+        )
+        n_files, loc, n_areas, n_edges = stats
+        return {
+            "html": html,
+            "stats": {
+                "files": n_files, "loc": loc,
+                "areas": n_areas, "edges": n_edges, "depth": depth,
+            },
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        # Echo the actual exception so the frontend can show it.
+        raise HTTPException(500, f"codemap build failed: {type(e).__name__}: {e}")
+
+
+def _codemap_data_for(idx) -> dict:
+    """Return the codemap data structure as plain JSON-able dict.
+
+    We piggyback on render_html() (which already assembles the data exactly
+    how the standalone HTML uses it) and pull the embedded JSON back out by
+    regex. Cheaper than duplicating its logic, and keeps codemap unmodified.
+    """
+    import re, json as _json
+    out = _codemap_html_for(idx, embed_src=True)
+    html = out["html"]
+    # The HTML contains a line: const DATA={...};\n
+    m = re.search(r"const\s+DATA\s*=\s*(.*?);\s*\nconst\s+", html, re.DOTALL)
+    if not m:
+        raise HTTPException(500, "Could not extract codemap data from HTML")
+    try:
+        data = _json.loads(m.group(1).strip())
+    except Exception as e:
+        raise HTTPException(500, f"codemap data JSON-decode failed: {e}")
+    data["stats"] = out["stats"]
+    return data
+
+
+@app.get("/api/v1/repos/{rid}/codemap/data")
+def codemap_data(rid: str, refresh: int = 0) -> dict:
+    """Structured codemap data for the React three-layer UI.
+    Same data the standalone HTML uses internally — areas, edges, file index,
+    embedded source, descriptions, palette."""
+    idx = _require_idx(rid)
+    cache_key = (rid, "data")
+    if not refresh and cache_key in _CODEMAP_CACHE:
+        return _CODEMAP_CACHE[cache_key]
+    data = _codemap_data_for(idx)
+    _CODEMAP_CACHE[cache_key] = data
+    return data
+
+
+# ── LLM-powered file explanation (for the deep-dive's "LLM" tab) ──
+def _detailed_explain(pf, summary: dict, model: str, extra: dict) -> str:
+    """Produce an in-depth, sectioned walkthrough of one file. Sends the full
+    source plus structured facts (symbols+complexity, imports, depends-on,
+    used-by) and asks for plain-text sections that render well with pre-wrap."""
+    import json as _json
+    import litellm  # type: ignore
+    facts = _json.dumps(summary, indent=2)[:6000]
+    src = pf.text or ""
+    truncated = len(src) > 14000
+    code = src[:14000]
+    system = (
+        "You are a senior software engineer writing a precise, in-depth walkthrough of ONE "
+        "source file for a teammate new to this codebase. Ground every statement in the actual "
+        "code provided; never invent behaviour. Be specific — name the real functions, "
+        "classes, variables, routes and types. Write information-dense PLAIN TEXT with NO "
+        "Markdown symbols (no #, *, or backticks). Use these ALL-CAPS section headers, each on "
+        "its own line, with a blank line between sections:\n"
+        "PURPOSE — what this file is for and its role in the wider system.\n"
+        "KEY COMPONENTS — each class/function: what it does, its inputs and outputs, and any "
+        "non-trivial logic (one short paragraph or a dashed bullet per item).\n"
+        "HOW IT WORKS — the main control/data flow through the file, step by step.\n"
+        "DEPENDENCIES & CONNECTIONS — what it imports and relies on, and what depends on it.\n"
+        "NOTABLE DETAILS — edge cases, error handling, complexity hot-spots, assumptions, "
+        "risks or TODOs worth knowing.\n"
+        "Skip a section only if there is genuinely nothing to say about it."
+    )
+    user = (
+        f"FILE: {pf.file}  ({getattr(pf, 'language', '?')}, {getattr(pf, 'loc', '?')} LOC)\n\n"
+        f"STRUCTURED FACTS (symbols with complexity, imports, depends-on, used-by):\n{facts}\n\n"
+        f"SOURCE{' (truncated)' if truncated else ''}:\n{code}"
+    )
+    r = litellm.completion(
+        model=model,
+        messages=[{"role": "system", "content": system},
+                  {"role": "user", "content": user}],
+        temperature=0.2, timeout=300, **(extra or {}),
+    )
+    return r["choices"][0]["message"]["content"].strip()
+
+
+@app.get("/api/v1/repos/{rid}/files/explain")
+def file_explain(rid: str, file: str, provider: str = "", model: str = "", base_url: str = "") -> dict:
+    """LLM explanation of one file. Uses engine's llm.explain_file() which
+    sends a curated summary + source excerpt to the configured provider."""
+    idx = _require_idx(rid)
+    _sync_llm_config(idx)
+    pf = _find_parsed_file(idx, file)
+    if not pf:
+        raise HTTPException(404, "File not found in index")
+    if model.strip():
+        full, extra = engine_providers.resolve(provider.strip(), model.strip(), base_url.strip())
+    else:
+        full, extra = idx.config.llm_model, getattr(idx.config, "llm_kwargs", {})
+    if not full:
+        return {
+            "explanation": None,
+            "used_llm": False,
+            "reason": "Open AI settings (the sidebar status pill, or the Settings page) to connect a local Ollama model or a provider key, then re-open this tab.",
+        }
+    summary = insights.file_summary(idx, pf.file) or {}
+    try:
+        text = _detailed_explain(pf, summary, full, extra)
+    except Exception as e:
+        raise HTTPException(500, f"LLM explain failed: {type(e).__name__}: {e}")
+    return {"explanation": text, "used_llm": True, "reason": None}
+
+
+@app.get("/api/v1/codemap/status")
+def codemap_status() -> dict:
+    """Tiny diagnostic the frontend can show to surface install issues."""
+    return {
+        "available": CODEMAP_AVAILABLE,
+        "load_error": _CODEMAP_LOAD_ERROR,
+        "expected_path": str(CODEMAP_ROOT),
+        "expected_path_exists": CODEMAP_ROOT.exists(),
+        "codemap_module_file": getattr(cmap, "__file__", None) if cmap else None,
+    }
+
+
+@app.get("/api/v1/repos/{rid}/codemap/stats")
+def codemap_stats(rid: str, refresh: int = 0) -> dict:
+    """Return just the codemap stats — used by the page header without
+    re-downloading the full HTML."""
+    idx = _require_idx(rid)
+    cached = _CODEMAP_CACHE.get(rid)
+    if cached and not refresh:
+        return {"stats": cached["stats"], "available": CODEMAP_AVAILABLE}
+    out = _codemap_html_for(idx)
+    _CODEMAP_CACHE[rid] = out
+    return {"stats": out["stats"], "available": CODEMAP_AVAILABLE}
+
+
+@app.get("/api/v1/repos/{rid}/codemap", response_class=HTMLResponse)
+def codemap_html(rid: str, refresh: int = 0, embed: int = 1) -> HTMLResponse:
+    """Stream the self-contained codemap HTML for embedding in an iframe."""
+    idx = _require_idx(rid)
+    cached = _CODEMAP_CACHE.get(rid)
+    if cached and not refresh and bool(cached.get("embed_src", True)) == bool(embed):
+        return HTMLResponse(content=cached["html"])
+    out = _codemap_html_for(idx, embed_src=bool(embed))
+    out["embed_src"] = bool(embed)
+    _CODEMAP_CACHE[rid] = out
+    return HTMLResponse(content=out["html"])
+
+
+# ── API & DB ─────────────────────────────────────────────────────
+@app.get("/api/v1/repos/{rid}/api-db")
+def api_db(rid: str) -> dict:
+    idx = _require_idx(rid)
+    return {"routes": insights.api_map(idx), "models": insights.db_map(idx)}
+
+
+# ── Ask ─────────────────────────────────────────────────────────
+@app.post("/api/v1/repos/{rid}/ask")
+def ask(rid: str, req: AskRequest) -> dict:
+    idx = _require_idx(rid)
+    if not req.question.strip(): raise HTTPException(400, "Question is empty")
+    _sync_llm_config(idx)
+    if req.model.strip():
+        full, extra = engine_providers.resolve(req.provider.strip(), req.model.strip(), req.base_url.strip())
+        idx.config.llm_model = full
+        idx.config.llm_kwargs = extra
+    if not idx.config.llm_model:
+        return {
+            "question": req.question, "answer": None, "used_llm": False, "needs_llm": True,
+            "reason": "Answers are generated by an LLM. Open AI settings to connect a local Ollama model or a provider key, then ask again.",
+            "sources": [],
+        }
+    try:
+        res = idx.ask(req.question)
+    except Exception as e:
+        raise HTTPException(500, f"Ask failed: {type(e).__name__}: {e}")
+    return {
+        "question": req.question, "answer": res.get("answer"),
+        "used_llm": res.get("used_llm", False),
+        "sources": [
+            {"file": r.chunk.file, "start_line": r.chunk.start_line,
+             "end_line": r.chunk.end_line, "name": r.chunk.name,
+             "via": r.via, "score": round(r.score, 4), "text": r.chunk.text}
+            for r in (res.get("retrieved") or [])
+        ],
+    }
+
+
+# ── Track ───────────────────────────────────────────────────────
+@app.get("/api/v1/repos/{rid}/track/commits")
+def track_commits(rid: str, n: int = 30) -> dict:
+    idx = _require_idx(rid)
+    if not track.is_git(idx.meta.path):
+        return {"is_git": False, "commits": []}
+    return {"is_git": True, "commits": track.git_log(idx.meta.path, n=n)}
+
+@app.post("/api/v1/repos/{rid}/track/diff")
+def track_diff(rid: str, req: SnapshotDiffRequest) -> dict:
+    idx = _require_idx(rid)
+    if not track.is_git(idx.meta.path):
+        raise HTTPException(400, "Repo is not a git repository")
+    try:
+        base = track.snapshot(idx.meta.path, req.base_commit, idx.config)
+        head = track.snapshot(idx.meta.path, req.head_commit, idx.config)
+    except Exception as e:
+        raise HTTPException(500, f"Snapshot failed: {e}")
+    d = track.diff(base, head)
+    return {
+        "diff": d,
+        "changelog": track.changelog_text(d),
+        "arch_delta_dot": track.architecture_delta_dot(base, head),
+    }
+
+
+# ── Timeline: over-time change tracking (one living state + an append-only log) ──
+def _track_dir(rid: str) -> Path:
+    d = Path(os.environ.get("KNOWIT_DATA_DIR", str(HERE / ".cache"))) / "tracked" / rid
+    d.mkdir(parents=True, exist_ok=True)
+    return d
+
+
+_SIG_SKIP = {".git", "node_modules", ".venv", "venv", "__pycache__", ".cache", "dist",
+             "build", ".next", ".idea", ".mypy_cache", ".pytest_cache", ".ruff_cache", "target"}
+
+
+def _folder_signature(root: str) -> str:
+    """Cheap change-detector: hash of (relpath, mtime, size) over source files.
+    Stat-only, prunes heavy/hidden dirs, bounded — no parsing, so it is safe to
+    poll. A changed hash means 'something changed; a real capture is worth it'."""
+    import hashlib
+    import os as _os
+    if not _os.path.isdir(root):
+        return ""
+    h = hashlib.sha1()
+    count = 0
+    for dirpath, dirnames, filenames in _os.walk(root):
+        dirnames[:] = [d for d in dirnames if d not in _SIG_SKIP and not d.startswith(".")]
+        for fn in sorted(filenames):
+            fp = _os.path.join(dirpath, fn)
+            try:
+                st = _os.stat(fp)
+                h.update(_os.path.relpath(fp, root).encode("utf-8", "ignore"))
+                h.update(str(int(st.st_mtime)).encode())
+                h.update(str(st.st_size).encode())
+                count += 1
+            except Exception:
+                pass
+        if count > 20000:
+            break
+    return h.hexdigest()
+
+
+def _git_history(path: str, n: int = 80):
+    """Recent commits as structured events via the git CLI (no GitPython dep).
+    Returns None if not a git repo / git unavailable."""
+    import os as _os
+    import subprocess
+    if not _os.path.isdir(_os.path.join(path, ".git")):
+        return None
+    RS, FS = chr(30), chr(31)
+    fmt = RS + "%H" + FS + "%aI" + FS + "%an" + FS + "%s"
+    try:
+        res = subprocess.run(
+            ["git", "-C", path, "log", "-n", str(n), "--name-status", "--no-renames",
+             "--pretty=format:" + fmt],
+            capture_output=True, text=True, timeout=30)
+    except Exception:
+        return None
+    if res.returncode != 0:
+        return None
+    commits = []
+    for chunk in res.stdout.split(RS):
+        chunk = chunk.strip("\n")
+        if not chunk:
+            continue
+        lines = chunk.split("\n")
+        head = lines[0].split(FS)
+        if len(head) < 4:
+            continue
+        sha, date, author, subject = head[0], head[1], head[2], head[3]
+        fa, fr, fm = [], [], []
+        for ln in lines[1:]:
+            ln = ln.strip()
+            if not ln or "\t" not in ln:
+                continue
+            status, _sep, fpath = ln.partition("\t")
+            s0 = status[:1]
+            if s0 == "A":
+                fa.append(fpath)
+            elif s0 == "D":
+                fr.append(fpath)
+            else:
+                fm.append({"file": fpath})
+        commits.append({"sha": sha[:10], "ts": date, "author": author, "subject": subject,
+                        "files_added": fa, "files_removed": fr, "files_modified": fm})
+    return commits
+
+
+def _structural_fingerprint(idx) -> dict:
+    """Compact structural state of the folder right now (no source kept)."""
+    files = {}
+    for pf in idx.parsed_files:
+        syms = {s.qualname: {"kind": s.kind, "cx": int(s.complexity)} for s in pf.symbols}
+        files[pf.file] = {
+            "loc": int(getattr(pf, "loc", 0) or 0),
+            "lang": getattr(pf, "language", ""),
+            "cx_total": sum(int(s.complexity) for s in pf.symbols),
+            "symbols": syms,
+        }
+    ins = insights.repo_insights(idx)
+    metrics = {
+        "files": len(idx.parsed_files),
+        "symbols": int(ins.get("n_symbols", 0) or 0),
+        "loc": int(ins.get("loc_total", 0) or 0),
+        "avg_complexity": float(ins.get("avg_complexity", 0) or 0),
+        "dead_code": len(ins.get("likely_unused", []) or []),
+    }
+    return {"files": files, "metrics": metrics}
+
+
+def _diff_fingerprints(old: dict, new: dict) -> dict:
+    of, nf = old.get("files", {}), new.get("files", {})
+    files_added = sorted([f for f in nf if f not in of])
+    files_removed = sorted([f for f in of if f not in nf])
+    files_modified, sym_added, sym_removed, sym_changed = [], [], [], []
+    for f in nf:
+        if f not in of:
+            for q, v in nf[f]["symbols"].items():
+                sym_added.append({"file": f, "symbol": q, "kind": v["kind"], "cx": v["cx"]})
+            continue
+        o, n = of[f], nf[f]
+        if o == n:
+            continue
+        os_, ns_ = o.get("symbols", {}), n.get("symbols", {})
+        for q in ns_:
+            if q not in os_:
+                sym_added.append({"file": f, "symbol": q, "kind": ns_[q]["kind"], "cx": ns_[q]["cx"]})
+            elif ns_[q] != os_[q]:
+                sym_changed.append({"file": f, "symbol": q, "cx": ns_[q]["cx"], "cx_was": os_[q]["cx"]})
+        for q in os_:
+            if q not in ns_:
+                sym_removed.append({"file": f, "symbol": q})
+        files_modified.append({"file": f, "loc": n["loc"], "loc_was": o["loc"],
+                               "cx_total": n["cx_total"], "cx_was": o["cx_total"]})
+    om, nm = old.get("metrics", {}), new.get("metrics", {})
+    metric_delta = {k: {"now": nm.get(k), "was": om.get(k),
+                        "delta": round((nm.get(k, 0) or 0) - (om.get(k, 0) or 0), 2)} for k in nm}
+    changed = bool(files_added or files_removed or files_modified or sym_added or sym_removed or sym_changed)
+    return {"changed": changed, "files_added": files_added, "files_removed": files_removed,
+            "files_modified": files_modified, "symbols_added": sym_added,
+            "symbols_removed": sym_removed, "symbols_changed": sym_changed,
+            "metric_delta": metric_delta}
+
+
+def _delta_summary(d: dict) -> str:
+    """Templated, no-LLM one-liner describing the change."""
+    parts = []
+    if d["files_added"]:    parts.append(f"{len(d['files_added'])} file(s) added")
+    if d["files_modified"]: parts.append(f"{len(d['files_modified'])} modified")
+    if d["files_removed"]:  parts.append(f"{len(d['files_removed'])} removed")
+    if d["symbols_added"]:  parts.append(f"{len(d['symbols_added'])} new symbol(s)")
+    if d["symbols_removed"]: parts.append(f"{len(d['symbols_removed'])} symbol(s) removed")
+    cxd = (d.get("metric_delta", {}).get("avg_complexity", {}) or {}).get("delta", 0)
+    if cxd:
+        parts.append(f"avg complexity {'+' if cxd > 0 else ''}{cxd}")
+    return "; ".join(parts) or "No structural changes"
+
+
+@app.post("/api/v1/repos/{rid}/track/capture")
+def track_capture(rid: str) -> dict:
+    """Re-scan the folder now, diff against the last recorded state, append a
+    change event. Stores ONE current state + the event log (no snapshot pile)."""
+    import json
+    from datetime import datetime
+    with _REPOS_LOCK:
+        slot = _REPOS.get(rid)
+    if not slot:
+        raise HTTPException(404, "Unknown repo_id")
+    source = slot.get("source")
+    cfg = _engine_config()
+    try:
+        idx = build_index(source, cfg)
+    except Exception as e:
+        raise HTTPException(400, f"Could not re-scan {source!r}: {e}")
+    with _REPOS_LOCK:
+        if rid in _REPOS:
+            _REPOS[rid]["idx"] = idx
+            _REPOS[rid]["meta"] = idx.meta
+            _REPOS[rid]["status"] = "ready"
+    new_fp = _structural_fingerprint(idx)
+    tdir = _track_dir(rid)
+    state_p, events_p = tdir / "state.json", tdir / "events.jsonl"
+    repo_path = getattr(idx.meta, "path", source)
+    try:
+        (tdir / "meta.json").write_text(json.dumps(
+            {"rid": rid, "source": source, "name": getattr(idx.meta, "name", source),
+             "path": repo_path}), encoding="utf-8")
+        (tdir / "sig.txt").write_text(_folder_signature(repo_path), encoding="utf-8")
+    except Exception:
+        pass
+    now = datetime.utcnow().isoformat() + "Z"
+    if not state_p.exists():
+        state_p.write_text(json.dumps(new_fp), encoding="utf-8")
+        event = {"ts": now, "kind": "baseline", "summary": "Baseline captured",
+                 "metrics": new_fp["metrics"]}
+        with events_p.open("a", encoding="utf-8") as fh:
+            fh.write(json.dumps(event) + "\n")
+        return {"baseline": True, "changed": True, "event": event}
+    old_fp = json.loads(state_p.read_text(encoding="utf-8"))
+    delta = _diff_fingerprints(old_fp, new_fp)
+    if not delta["changed"]:
+        return {"changed": False, "event": None, "metrics": new_fp["metrics"]}
+    event = {"ts": now, "kind": "change", "summary": _delta_summary(delta),
+             "metrics": new_fp["metrics"], **delta}
+    with events_p.open("a", encoding="utf-8") as fh:
+        fh.write(json.dumps(event) + "\n")
+    state_p.write_text(json.dumps(new_fp), encoding="utf-8")
+    return {"changed": True, "event": event}
+
+
+@app.get("/api/v1/repos/{rid}/track/timeline")
+def track_timeline(rid: str, limit: int = 100) -> dict:
+    import json
+    events_p = _track_dir(rid) / "events.jsonl"
+    events = []
+    if events_p.exists():
+        for line in events_p.read_text(encoding="utf-8").splitlines():
+            line = line.strip()
+            if line:
+                try:
+                    events.append(json.loads(line))
+                except Exception:
+                    pass
+    events.sort(key=lambda e: e.get("ts", ""), reverse=True)
+    return {"events": events[:limit], "count": len(events)}
+
+
+@app.get("/api/v1/repos/{rid}/track/trends")
+def track_trends(rid: str) -> dict:
+    import json
+    events_p = _track_dir(rid) / "events.jsonl"
+    series = []
+    if events_p.exists():
+        for line in events_p.read_text(encoding="utf-8").splitlines():
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                e = json.loads(line)
+                if e.get("metrics"):
+                    series.append({"ts": e.get("ts"), **e["metrics"]})
+            except Exception:
+                pass
+    return {"series": series}
+
+
+class NarrateRequest(BaseModel):
+    ts: str
+    provider: str = ""
+    model: str = ""
+    base_url: str = ""
+
+
+@app.post("/api/v1/repos/{rid}/track/narrate")
+def track_narrate(rid: str, req: NarrateRequest) -> dict:
+    """Optional, cheap LLM narration of ONE change event (only the small delta is
+    sent, never the whole repo). Cached per event so it is paid for once."""
+    import json
+    tdir = _track_dir(rid)
+    events_p, narr_p = tdir / "events.jsonl", tdir / "narrations.json"
+    ev = None
+    if events_p.exists():
+        for line in events_p.read_text(encoding="utf-8").splitlines():
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                e = json.loads(line)
+            except Exception:
+                continue
+            if e.get("ts") == req.ts:
+                ev = e
+                break
+    if ev is None:
+        raise HTTPException(404, "Change event not found")
+    cache = {}
+    if narr_p.exists():
+        try:
+            cache = json.loads(narr_p.read_text(encoding="utf-8"))
+        except Exception:
+            cache = {}
+    if req.ts in cache and not req.model.strip():
+        return {"narration": cache[req.ts], "cached": True}
+    if req.model.strip():
+        full, extra = engine_providers.resolve(req.provider.strip(), req.model.strip(), req.base_url.strip())
+    else:
+        cfg = _engine_config()
+        full, extra = cfg.llm_model, getattr(cfg, "llm_kwargs", {})
+    if not full:
+        return {"narration": None, "needs_llm": True,
+                "reason": "Connect a model in AI settings to narrate changes."}
+    parts = []
+    if ev.get("files_added"):
+        parts.append("Files added: " + ", ".join(ev["files_added"][:25]))
+    if ev.get("files_removed"):
+        parts.append("Files removed: " + ", ".join(ev["files_removed"][:25]))
+    if ev.get("files_modified"):
+        parts.append("Files modified: " + ", ".join(f.get("file", "") for f in ev["files_modified"][:25]))
+    if ev.get("symbols_added"):
+        parts.append("Symbols added: " + ", ".join(x.get("symbol", "") for x in ev["symbols_added"][:30]))
+    if ev.get("symbols_removed"):
+        parts.append("Symbols removed: " + ", ".join(x.get("symbol", "") for x in ev["symbols_removed"][:30]))
+    if ev.get("symbols_changed"):
+        parts.append("Symbols changed: " + ", ".join(x.get("symbol", "") for x in ev["symbols_changed"][:30]))
+    md = ev.get("metric_delta", {})
+    if md:
+        parts.append("Metrics: " + ", ".join(
+            f"{k} {v.get('was')}->{v.get('now')}" for k, v in md.items()))
+    diff_text = "\n".join(parts) or "No structural change."
+    system = (
+        "You summarise what changed in a codebase between two captures, for a developer "
+        "keeping track of fast, often AI-assisted edits. Ground every claim in the diff "
+        "below; do not invent. 2-4 sentences, plain text, no Markdown. Say what likely "
+        "happened and what is worth double-checking."
+    )
+    try:
+        import litellm
+        r = litellm.completion(
+            model=full,
+            messages=[{"role": "system", "content": system},
+                      {"role": "user", "content": f"Folder change diff:\n{diff_text}"}],
+            temperature=0.2, timeout=120, **(extra or {}),
+        )
+        text = r["choices"][0]["message"]["content"].strip()
+    except Exception as e:
+        raise HTTPException(500, f"Narration failed: {type(e).__name__}: {e}")
+    cache[req.ts] = text
+    try:
+        narr_p.write_text(json.dumps(cache), encoding="utf-8")
+    except Exception:
+        pass
+    return {"narration": text, "cached": False}
+
+
+@app.get("/api/v1/workspace")
+def workspace() -> dict:
+    """All folders we have history for (persisted), with their latest change —
+    the multi-folder home. Survives restarts (reads disk, not just memory)."""
+    import json
+    base = Path(os.environ.get("KNOWIT_DATA_DIR", str(HERE / ".cache"))) / "tracked"
+    out = []
+    if base.exists():
+        for d in sorted(base.iterdir()):
+            if not d.is_dir():
+                continue
+            rid = d.name
+            meta = {}
+            mp = d / "meta.json"
+            if mp.exists():
+                try:
+                    meta = json.loads(mp.read_text(encoding="utf-8"))
+                except Exception:
+                    meta = {}
+            events = []
+            ep = d / "events.jsonl"
+            if ep.exists():
+                for line in ep.read_text(encoding="utf-8").splitlines():
+                    line = line.strip()
+                    if line:
+                        try:
+                            events.append(json.loads(line))
+                        except Exception:
+                            pass
+            last = events[-1] if events else None
+            with _REPOS_LOCK:
+                connected = rid in _REPOS and _REPOS[rid].get("status") == "ready"
+            out.append({
+                "rid": rid,
+                "name": meta.get("name") or rid,
+                "source": meta.get("source") or "",
+                "captures": len(events),
+                "last_ts": last.get("ts") if last else None,
+                "last_summary": last.get("summary") if last else None,
+                "metrics": last.get("metrics") if last else None,
+                "connected": connected,
+            })
+    out.sort(key=lambda x: x.get("last_ts") or "", reverse=True)
+    return {"folders": out}
+
+
+@app.get("/api/v1/repos/{rid}/track/dirty")
+def track_dirty(rid: str) -> dict:
+    """Cheap check: has the folder changed since the last capture? (no parse)"""
+    import json
+    import os as _os
+    tdir = _track_dir(rid)
+    meta_p, sig_p = tdir / "meta.json", tdir / "sig.txt"
+    path = ""
+    if meta_p.exists():
+        try:
+            path = json.loads(meta_p.read_text(encoding="utf-8")).get("path", "")
+        except Exception:
+            path = ""
+    if not path:
+        with _REPOS_LOCK:
+            slot = _REPOS.get(rid)
+        if slot and slot.get("idx"):
+            path = getattr(slot["idx"].meta, "path", "")
+    if not path or not _os.path.isdir(path):
+        return {"trackable": False, "dirty": False, "has_baseline": False}
+    cur = _folder_signature(path)
+    old = sig_p.read_text(encoding="utf-8").strip() if sig_p.exists() else ""
+    return {"trackable": True, "has_baseline": bool(old), "dirty": bool(old) and cur != old}
+
+
+@app.post("/api/v1/repos/{rid}/track/import-git")
+def track_import_git(rid: str, n: int = 80) -> dict:
+    """Backfill the timeline from git commits (deduped by sha)."""
+    import json
+    import os as _os
+    tdir = _track_dir(rid)
+    path = ""
+    with _REPOS_LOCK:
+        slot = _REPOS.get(rid)
+    if slot and slot.get("idx"):
+        path = getattr(slot["idx"].meta, "path", "")
+    if not path:
+        mp = tdir / "meta.json"
+        if mp.exists():
+            try:
+                path = json.loads(mp.read_text(encoding="utf-8")).get("path", "")
+            except Exception:
+                path = ""
+    if not path or not _os.path.isdir(path):
+        return {"is_git": False, "imported": 0}
+    commits = _git_history(path, n)
+    if commits is None:
+        return {"is_git": False, "imported": 0}
+    events_p = tdir / "events.jsonl"
+    existing = set()
+    if events_p.exists():
+        for line in events_p.read_text(encoding="utf-8").splitlines():
+            line = line.strip()
+            if line:
+                try:
+                    e = json.loads(line)
+                    if e.get("sha"):
+                        existing.add(e["sha"])
+                except Exception:
+                    pass
+    new = [c for c in commits if c["sha"] not in existing]
+    if new:
+        with events_p.open("a", encoding="utf-8") as fh:
+            for c in reversed(new):
+                fh.write(json.dumps({
+                    "ts": c["ts"], "kind": "commit", "sha": c["sha"], "author": c["author"],
+                    "summary": c["subject"], "files_added": c["files_added"],
+                    "files_removed": c["files_removed"], "files_modified": c["files_modified"],
+                }) + "\n")
+    return {"is_git": True, "imported": len(new)}
+
+
+# ── Intel: tech debt, decisions, errors, memory, impact, coverage ──
+@app.get("/api/v1/repos/{rid}/intel/techdebt")
+def intel_techdebt(rid: str) -> dict:
+    idx = _require_idx(rid)
+    return {
+        "dead_code": techdebt.dead_code(idx),
+        "undocumented": techdebt.undocumented(idx),
+        "complexity_hotspots": techdebt.complexity_hotspots(idx),
+        "god_files": techdebt.god_files(idx),
+        "near_duplicates": techdebt.duplicate_pairs(idx),
+        "import_cycles": techdebt.import_cycles(idx),
+    }
+
+@app.get("/api/v1/repos/{rid}/intel/memory")
+def intel_memory(rid: str) -> dict:
+    idx = _require_idx(rid)
+    return {
+        "decisions": engmemory.load(idx.config, idx.meta.name, "decisions"),
+        "errors":    engmemory.load(idx.config, idx.meta.name, "errors"),
+        "memory":    engmemory.load(idx.config, idx.meta.name, "memory"),
+    }
+
+@app.post("/api/v1/repos/{rid}/intel/memory/add")
+def intel_memory_add(rid: str, req: EngMemoryAddRequest) -> dict:
+    idx = _require_idx(rid)
+    if req.kind not in ("decisions", "errors", "memory"):
+        raise HTTPException(400, "kind must be decisions|errors|memory")
+    entry = engmemory.add(idx.config, idx.meta.name, req.kind,
+                           {"title": req.title, "body": req.body})
+    return {"ok": True, "entry": entry}
+
+@app.delete("/api/v1/repos/{rid}/intel/memory/{kind}/{eid}")
+def intel_memory_del(rid: str, kind: str, eid: str) -> dict:
+    idx = _require_idx(rid)
+    if kind not in ("decisions", "errors", "memory"):
+        raise HTTPException(400, "kind must be decisions|errors|memory")
+    engmemory.delete(idx.config, idx.meta.name, kind, eid)
+    return {"ok": True}
+
+@app.get("/api/v1/repos/{rid}/intel/impact")
+def intel_impact(rid: str, symbol: str) -> dict:
+    idx = _require_idx(rid)
+    try:
+        # Engine API: impact_of(idx, node_id) — node_id is the full graph node id
+        # (e.g. "model.py::Detector.predict"). The frontend already passes that.
+        return impact.impact_of(idx, symbol)
+    except Exception as e:
+        raise HTTPException(500, f"Impact analysis failed: {type(e).__name__}: {e}")
+
+@app.get("/api/v1/repos/{rid}/intel/coverage")
+def intel_coverage(rid: str) -> dict:
+    idx = _require_idx(rid)
+    try:
+        # Engine API: coverage_summary(idx) — returns test files, tested/total
+        # counts, ratio, and a top-N untested-by-complexity list.
+        return coverage.coverage_summary(idx)
+    except Exception as e:
+        raise HTTPException(500, f"Coverage analysis failed: {type(e).__name__}: {e}")
