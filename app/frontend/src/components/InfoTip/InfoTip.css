@@ -1,0 +1,21 @@
+.infotip { position: relative; display: inline-flex; align-items: center; margin-left: 5px; vertical-align: middle; }
+.infotip__icon {
+  width: 14px; height: 14px; border-radius: 50%; font-size: 9.5px; font-weight: 700;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: var(--dash-surface-hover); color: var(--dash-text-muted);
+  border: 1px solid var(--dash-border); cursor: help;
+}
+.infotip:hover .infotip__icon, .infotip:focus .infotip__icon {
+  background: var(--kyc-accent-dim); color: var(--kyc-accent); border-color: var(--kyc-accent);
+}
+.infotip__bubble {
+  position: absolute; bottom: calc(100% + 8px); left: 50%; transform: translateX(-50%);
+  width: max-content; max-width: 260px; padding: 9px 12px; border-radius: 9px;
+  background: var(--dash-text); color: #fff;
+  font-size: 11.5px; font-weight: 400; line-height: 1.45; letter-spacing: 0; text-transform: none;
+  text-align: left; white-space: normal;
+  box-shadow: 0 6px 20px rgba(0,0,0,0.18);
+  opacity: 0; visibility: hidden; transition: opacity 0.15s; z-index: 60; pointer-events: none;
+}
+.infotip__bubble strong { display: block; margin-bottom: 3px; color: #fff; }
+.infotip:hover .infotip__bubble, .infotip:focus .infotip__bubble { opacity: 1; visibility: visible; }
