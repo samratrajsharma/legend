@@ -1,0 +1,15 @@
+.ov-row {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 16px;
+  margin-bottom: 16px;
+}
+.ov-row > .card { margin-bottom: 0; }
+.ov-muted { font-size: 13px; color: var(--dash-text-muted); }
+.ov-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 6px; }
+.ov-list li { padding: 6px 10px; background: var(--dash-surface-hover); border-radius: 8px; font-size: 13px; }
+.ov-list code, .table code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12.5px;
+}
+
+@media (max-width: 1100px) {
+  .ov-row { grid-template-columns: 1fr; }
+}
