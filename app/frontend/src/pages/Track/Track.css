@@ -1,0 +1,38 @@
+.track__row { display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap; }
+.track__row > div { display: flex; flex-direction: column; gap: 4px; flex: 1; min-width: 200px; }
+.track__row label { font-size: 11px; font-weight: 700; color: var(--dash-text-muted); text-transform: uppercase; letter-spacing: 0.06em; }
+
+.track__changelog {
+  margin: 0; padding: 14px;
+  background: #1a1a1a; border: 1px solid var(--dash-border); border-radius: 10px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px; line-height: 1.6; color: var(--dash-text);
+  white-space: pre-wrap; overflow-wrap: anywhere; max-height: 480px; overflow: auto;
+}
+
+/* ── Changelog (structured render) ── */
+.track__log {
+  background: #1a1a1a; border: 1px solid var(--dash-border); border-radius: 10px;
+  padding: 12px 16px; max-height: 540px; overflow: auto;
+  font-size: 13px; line-height: 1.55;
+}
+.track__log-h { font-weight: 700; color: var(--dash-text); margin: 16px 0 6px; }
+.track__log-h:first-child { margin-top: 0; }
+.track__log-li { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px; padding: 2px 0 2px 12px; }
+.track__log-sym { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12.5px; color: var(--dash-text); }
+.track__log-path { font-size: 11.5px; color: var(--dash-text-muted); overflow-wrap: anywhere; }
+.track__log-p { color: var(--dash-text-secondary); }
+
+/* ── Architecture delta (edge list) ── */
+.track__hint-line { font-size: 12.5px; color: var(--dash-text-muted); margin-bottom: 10px; }
+.track__edges { display: flex; flex-direction: column; gap: 4px; max-height: 540px; overflow: auto; }
+.track__edge {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  padding: 7px 11px; background: #1a1a1a;
+  border: 1px solid var(--dash-border); border-radius: 8px;
+}
+.track__edge-node { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12.5px; color: var(--dash-text); overflow-wrap: anywhere; }
+.track__edge-arrow { font-weight: 700; flex: 0 0 auto; }
+.track__none { font-size: 13px; color: var(--dash-text-muted); }
+.track__raw { margin-top: 12px; }
+.track__raw summary { cursor: pointer; font-size: 12.5px; color: var(--dash-text-secondary); padding: 4px 0; }

@@ -1,0 +1,24 @@
+.tl-capturebar { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 16px; }
+.tl-capturebar__title { font-weight: 700; font-size: 14px; color: var(--dash-text); }
+.tl-capturebar__sub { font-size: 12px; color: var(--dash-text-muted); margin-top: 3px; }
+.tl-trend { font-size: 11px; margin-top: 4px; color: var(--dash-text-muted); }
+.tl-list { display: flex; flex-direction: column; gap: 10px; }
+.tl-item { background: var(--dash-surface); border: 1px solid var(--dash-border); border-radius: 12px; padding: 14px 16px; box-shadow: var(--dash-card-shadow); }
+.tl-item__head { display: flex; align-items: center; gap: 10px; }
+.tl-item__dot { width: 9px; height: 9px; border-radius: 50%; background: var(--kyc-accent); flex: 0 0 auto; }
+.tl-item--baseline .tl-item__dot { background: var(--dash-text-muted); }
+.tl-item__summary { font-weight: 600; font-size: 13.5px; color: var(--dash-text); flex: 1; min-width: 0; }
+.tl-item__time { font-size: 11.5px; color: var(--dash-text-muted); white-space: nowrap; }
+.tl-item__details { margin-top: 10px; }
+.tl-item__details > summary { cursor: pointer; font-size: 12.5px; color: var(--kyc-accent); font-weight: 600; }
+.tl-detail-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 14px; margin-top: 12px; }
+.tl-block__title { font-size: 12px; font-weight: 700; color: var(--dash-text-secondary); margin-bottom: 6px; }
+.tl-block__list { margin: 0; padding-left: 16px; }
+.tl-block__list li { font-size: 12px; color: var(--dash-text-secondary); line-height: 1.5; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; word-break: break-word; }
+.tl-item__narrate { margin-top: 10px; }
+.tl-narration { background: var(--kyc-accent-dim); border-radius: 8px; padding: 10px 12px; font-size: 12.5px; color: var(--dash-text); line-height: 1.55; }
+.tl-narration--muted { background: var(--dash-surface-hover); color: var(--dash-text-secondary); }
+.tl-capturebar__actions { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.tl-auto { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--dash-text-secondary); cursor: pointer; }
+.tl-item__commitmeta { font-size: 11.5px; color: var(--dash-text-muted); margin-top: 4px; padding-left: 19px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+.tl-item--commit .tl-item__dot { background: var(--brand-cyan, #1ED760); }
