@@ -1,0 +1,423 @@
+/* ── Page shell ────────────────────────────────────────────── */
+.diag__stats {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 12px;
+  margin-bottom: 16px;
+}
+@media (max-width: 900px) { .diag__stats { grid-template-columns: repeat(2, 1fr); } }
+
+.diag__head {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 12px;
+}
+.diag__head h3 { font-size: 15px; font-weight: 700; }
+.diag__actions { display: flex; gap: 8px; }
+
+.diag__hint {
+  font-size: 12.5px;
+  color: var(--dash-text-secondary);
+  margin-bottom: 12px;
+  padding: 10px 14px;
+  background: var(--dash-surface-hover);
+  border-radius: 8px;
+}
+.diag__hint strong { color: var(--dash-text); }
+
+/* ── Layer 1 — Area Mindmap ───────────────────────────────── */
+.diag__mindmap {
+  position: relative;
+  width: 100%;
+  height: 640px;
+  background: #161616;
+  border-radius: 10px;
+  overflow: hidden;
+}
+.diag__legend {
+  position: absolute; top: 12px; left: 14px;
+  display: flex; flex-wrap: wrap; gap: 14px;
+  z-index: 2;
+  font-size: 11.5px; color: rgba(255, 255, 255, 0.7);
+}
+.diag__legend-item { display: inline-flex; align-items: center; gap: 6px; }
+.diag__legend-dot { width: 11px; height: 11px; border-radius: 3px; }
+
+/* Zoom controls — top-right corner of the mindmap canvas */
+.diag__zoom-bar {
+  position: absolute;
+  top: 12px;
+  right: 14px;
+  z-index: 2;
+  display: flex;
+  gap: 4px;
+  background: rgba(22, 22, 22, 0.85);
+  border: 1px solid #2a2a2a;
+  border-radius: 100px;
+  padding: 3px;
+  backdrop-filter: blur(8px);
+}
+.diag__zoom-btn {
+  width: 30px;
+  height: 28px;
+  border-radius: 100px;
+  background: transparent;
+  border: none;
+  color: #4ADE80;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s;
+  padding: 0 10px;
+}
+.diag__zoom-btn:hover { background: rgba(29, 185, 84, 0.08); }
+.diag__zoom-btn:active { background: rgba(29, 185, 84, 0.08); }
+
+.diag__mindmap-svg {
+  width: 100%; height: 100%;
+  display: block;
+  cursor: grab;
+}
+.diag__mindmap-svg:active { cursor: grabbing; }
+
+.diag__node { transition: opacity 0.12s; }
+.diag__node--dim rect { opacity: 0.18; }
+.diag__node--dim text { opacity: 0.25; }
+
+/* ── Layer 2 — Area Drill overlay (right sheet) ──────────── */
+.diag__ov {
+  position: fixed; inset: 0;
+  background: rgba(6, 10, 20, 0.62);
+  z-index: 200;
+  animation: diag-fade 0.18s ease;
+}
+.diag__sheet {
+  position: absolute; top: 0; right: 0;
+  height: 100%; width: min(960px, 94vw);
+  background: #161616; color: #4ADE80;
+  border-left: 1px solid #1AA34A;
+  box-shadow: -30px 0 60px rgba(0, 0, 0, 0.5);
+  display: flex; flex-direction: column;
+  animation: diag-slide-in 0.22s cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+.diag__sheet-head {
+  display: flex; align-items: flex-start; gap: 14px;
+  padding: 18px 22px; border-bottom: 1px solid #1AA34A;
+}
+.diag__sheet-title { font-size: 18px; font-weight: 700; margin: 8px 0 0; }
+.diag__sheet-meta { color: #1ED760; font-size: 12px; margin: 6px 0 0; }
+.diag__sheet-desc { color: #1ED760; font-size: 13px; margin: 8px 0 0; max-width: 72ch; }
+
+.diag__bartag {
+  display: inline-block;
+  font-size: 11px; font-weight: 700;
+  padding: 2px 9px; border-radius: 6px;
+  color: #1AA34A;
+}
+
+.diag__close {
+  margin-left: auto; cursor: pointer;
+  background: transparent; border: none;
+  font-size: 24px; color: #1ED760; padding: 2px 8px;
+  font-family: inherit;
+}
+.diag__close:hover { color: #fff; }
+
+.diag__sheet-filter { padding: 12px 22px; border-bottom: 1px solid #1AA34A; }
+.diag__sheet-filter .input {
+  background: #161616; border-color: #2a2a2a; color: #4ADE80;
+}
+
+.diag__file-grid {
+  flex: 1; overflow-y: auto;
+  padding: 16px 22px;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
+  gap: 12px;
+  align-content: start;
+}
+.diag__file-card {
+  background: #161616;
+  border: 1px solid #2a2a2a;
+  border-radius: 11px;
+  padding: 13px 14px;
+  cursor: pointer;
+  text-align: left;
+  font-family: inherit;
+  color: #4ADE80;
+  transition: border-color 0.12s, transform 0.12s;
+}
+.diag__file-card:hover {
+  border-color: #1DB954;
+  transform: translateY(-1px);
+}
+.diag__file-card-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.diag__file-card-name {
+  font-family: ui-monospace, Consolas, monospace;
+  font-size: 13.5px; font-weight: 700; color: #4ADE80;
+}
+.diag__file-card-ln { color: #1ED760; font-size: 11px; font-weight: 600; }
+.diag__file-card-doc { color: #1ED760; font-size: 12.5px; margin: 7px 0 0; line-height: 1.5; }
+.diag__file-card-cnt {
+  margin-top: 10px; font-size: 11px; color: #1ED760;
+  display: flex; justify-content: space-between; align-items: center;
+}
+.diag__file-card-open { color: #1DB954; }
+
+/* ── Layer 3 — File Deep-Dive overlay (centered window) ──── */
+.diag__fov {
+  position: fixed; inset: 0;
+  background: rgba(6, 10, 20, 0.72);
+  z-index: 250;
+  display: flex; align-items: center; justify-content: center;
+  animation: diag-fade 0.18s ease;
+}
+.diag__fwin {
+  width: 96vw; height: 94vh;
+  background: #161616; color: #4ADE80;
+  border: 1px solid #2a2a2a;
+  border-radius: 12px;
+  display: flex; flex-direction: column;
+  overflow: hidden;
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.6);
+}
+.diag__fwin-head {
+  display: flex; align-items: center; gap: 12px;
+  padding: 12px 18px; border-bottom: 1px solid #1AA34A;
+}
+.diag__fwin-name {
+  font-family: ui-monospace, Consolas, monospace;
+  font-size: 15px; font-weight: 700; color: #4ADE80;
+}
+.diag__fwin-meta { color: #1ED760; font-size: 12px; }
+.diag__path {
+  font-family: ui-monospace, Consolas, monospace;
+  font-size: 12px; color: #1DB954;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  max-width: 40ch;
+}
+
+.diag__fwin-body { flex: 1; display: flex; min-height: 0; }
+.diag__fwin-left {
+  width: 44%; max-width: 600px;
+  overflow-y: auto;
+  border-right: 1px solid #1AA34A;
+  display: flex; flex-direction: column;
+}
+.diag__fwin-right {
+  flex: 1; display: flex; min-height: 0;
+  background: #161616;
+}
+
+.diag__tabs {
+  display: flex; gap: 4px;
+  padding: 10px 18px 0;
+  border-bottom: 1px solid #1AA34A;
+}
+.diag__tab {
+  background: transparent; border: none;
+  color: #1ED760;
+  padding: 8px 14px;
+  font-family: inherit; font-size: 12.5px; font-weight: 600;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  transition: color 0.15s;
+}
+.diag__tab:hover { color: #4ADE80; }
+.diag__tab--active {
+  color: #4ADE80;
+  border-bottom-color: #1DB954;
+}
+
+.diag__analysis { padding: 16px 20px; }
+.diag__analysis h3 {
+  font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em;
+  color: #1ED760; margin: 16px 0 6px;
+}
+.diag__analysis p { font-size: 13px; color: #4ADE80; margin: 6px 0; line-height: 1.6; }
+
+.diag__rolebox {
+  background: #161616;
+  border: 1px solid #2a2a2a;
+  border-left: 3px solid #1DB954;
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-size: 12.5px; color: #4ADE80;
+  line-height: 1.55;
+}
+
+.diag__member {
+  border-left: 2px solid #1AA34A;
+  padding: 2px 0 2px 10px;
+  margin: 8px 0;
+}
+.diag__member-name {
+  font-family: ui-monospace, Consolas, monospace;
+  color: #4ADE80; font-size: 12.5px;
+}
+.diag__member-doc { color: #1ED760; font-size: 12px; margin-top: 2px; line-height: 1.5; }
+.diag__meth {
+  display: inline-block;
+  font-family: ui-monospace, Consolas, monospace;
+  font-size: 10.5px; color: #1ED760;
+  background: #161616; border: 1px solid #2a2a2a; border-radius: 4px;
+  padding: 0 5px; margin: 3px 3px 0 0;
+}
+
+.diag__fchip {
+  display: inline-block;
+  font-size: 11px; font-family: ui-monospace, Consolas, monospace;
+  background: #1DB95422; color: #4ADE80;
+  border: 1px solid #1DB95455; border-radius: 5px;
+  padding: 2px 7px;
+  margin: 2px 3px 0 0;
+  cursor: pointer;
+  font-family: inherit;
+}
+.diag__fchip:hover { background: #1DB95444; }
+
+.diag__none { color: #1ED760; font-size: 12px; }
+
+.diag__llm-text {
+  margin-top: 12px;
+  font-size: 13px; color: #4ADE80; line-height: 1.7;
+  white-space: pre-wrap;
+}
+
+/* ── Static analysis enrichments ─────────────────────────── */
+.diag__metric-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin-top: 14px;
+}
+.diag__metric {
+  background: #161616;
+  border: 1px solid #2a2a2a;
+  border-radius: 8px;
+  padding: 10px 12px;
+}
+.diag__metric-label {
+  font-size: 10px; font-weight: 700; letter-spacing: 0.08em;
+  text-transform: uppercase; color: #1DB954;
+}
+.diag__metric-value {
+  font-size: 20px; font-weight: 800;
+  color: #4ADE80; margin-top: 2px;
+  letter-spacing: -0.02em;
+}
+.diag__metric-value.diag__cx--high { color: #f87171; }
+.diag__metric-value.diag__cx--med  { color: #fbbf24; }
+.diag__metric-value.diag__cx--low  { color: #6ee7b7; }
+
+.diag__note {
+  font-size: 12px; color: #1ED760;
+  margin-top: 6px; line-height: 1.55;
+}
+
+.diag__reading {
+  list-style: none; padding: 0; margin: 6px 0 0;
+  display: flex; flex-direction: column; gap: 6px;
+}
+.diag__reading li {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  padding: 8px 10px;
+  background: #161616;
+  border: 1px solid #2a2a2a;
+  border-radius: 8px;
+  font-size: 12.5px;
+}
+.diag__sym-kind {
+  font-size: 9.5px; font-weight: 700; letter-spacing: 0.08em;
+  text-transform: uppercase; color: #1ED760;
+  padding: 2px 7px; border-radius: 100px;
+  background: #161616;
+}
+.diag__sym-name {
+  font-family: ui-monospace, Consolas, monospace;
+  color: #4ADE80;
+}
+.diag__sym-lines {
+  font-size: 11px; color: #1DB954;
+  margin-left: auto;
+}
+
+.diag__cx {
+  font-size: 10.5px; font-weight: 700;
+  padding: 2px 8px; border-radius: 100px;
+  font-family: ui-monospace, Consolas, monospace;
+}
+.diag__cx--high { background: rgba(248, 113, 113, 0.18); color: #fca5a5; }
+.diag__cx--med  { background: rgba(251, 191, 36, 0.18); color: #fcd34d; }
+.diag__cx--low  { background: rgba(110, 231, 183, 0.18); color: #6ee7b7; }
+
+/* Imports */
+.diag__imports {
+  display: flex; flex-wrap: wrap; gap: 4px;
+  margin-top: 6px;
+}
+.diag__import-chip {
+  font-family: ui-monospace, Consolas, monospace;
+  font-size: 11px; color: #1ED760;
+  background: #161616; border: 1px solid #2a2a2a;
+  border-radius: 5px;
+  padding: 1px 7px;
+}
+
+/* Public API rows */
+.diag__public-api { display: flex; flex-direction: column; gap: 8px; }
+.diag__api-row {
+  padding: 8px 10px;
+  background: #161616;
+  border-left: 2px solid #1DB954;
+  border-radius: 6px;
+  display: flex; flex-wrap: wrap; align-items: center; gap: 8px;
+}
+.diag__api-used {
+  font-size: 11px; color: #1DB954;
+}
+.diag__api-chips { width: 100%; display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
+
+/* Member rows: heading line with cx and lines badges */
+.diag__member-head {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+}
+
+/* Source code panel (right side of deep-dive) */
+.diag__code {
+  display: flex; flex: 1; overflow: auto;
+  font-family: ui-monospace, Consolas, monospace;
+  font-size: 12.5px; line-height: 1.55;
+}
+.diag__code-gut {
+  margin: 0; padding: 14px 8px 14px 14px;
+  text-align: right; color: #1AA34A;
+  user-select: none; white-space: pre;
+}
+.diag__code-src {
+  margin: 0; padding: 14px 18px 14px 8px;
+  white-space: pre; color: #4ADE80;
+  flex: 1; tab-size: 4;
+}
+.diag__src-none {
+  padding: 20px;
+  color: #1ED760; font-size: 13px;
+}
+
+/* Animations */
+@keyframes diag-fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes diag-slide-in {
+  from { transform: translateX(20px); opacity: 0; }
+  to   { transform: translateX(0);    opacity: 1; }
+}
+
+/* Diagnostic block (shown when codemap isn't loaded) */
+.diag__diag-line { font-size: 12.5px; color: var(--dash-text-secondary); margin-top: 6px; }
+.diag__diag-line code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11.5px;
+  background: var(--dash-surface-hover);
+  padding: 1px 6px;
+  border-radius: 4px;
+}
