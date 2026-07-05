@@ -1,0 +1,7 @@
+.stub {
+  text-align: center;
+  padding: 56px 24px;
+}
+.stub__icon { display: flex; justify-content: center; margin-bottom: 18px; opacity: 0.6; }
+.stub__title { font-size: 18px; font-weight: 700; color: var(--dash-text); margin-bottom: 8px; }
+.stub__body { font-size: 13.5px; color: var(--dash-text-secondary); max-width: 480px; margin: 0 auto; line-height: 1.6; }
