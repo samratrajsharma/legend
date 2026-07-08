@@ -1,0 +1,55 @@
+# ─────────────────────────────────────────────────────────────
+# KnowIT — Phase 0 dependencies
+# Python 3.10+ recommended.  Install:  pip install -r requirements.txt
+# ─────────────────────────────────────────────────────────────
+
+# UI / test harness — used from day one to exercise the WHOLE system
+streamlit>=1.36
+watchdog>=4.0                 # quiet Streamlit's file-watcher warning + faster reloads
+pyvis>=0.3.2                  # interactive (draggable/zoom/hover) diagrams; assets inlined, no CDN
+
+# Repo ingestion & git history (clone + walk + commit metadata for later deltas)
+GitPython>=3.1.43
+
+# Code parsing → symbols, imports, call edges (Python first)
+# NOTE: tree-sitter core and the grammar package should share the same minor version.
+# Python's stdlib `ast` is a zero-dep fallback if the build ever gives trouble.
+tree-sitter>=0.21
+tree-sitter-python>=0.21
+
+# Code graph — start embedded; swap for Kùzu / Neo4j at scale
+networkx>=3.3
+
+# Vector index + LOCAL embeddings by default (Chroma ships an on-device ONNX MiniLM)
+chromadb>=0.5.0
+
+# LLM layer — provider-agnostic routing (OpenAI, Anthropic, Ollama, vLLM, ...)
+# Lets us defer the local-vs-cloud decision and do cheap-model routing.
+litellm>=1.40
+
+# Token counting for chunking + cost control
+tiktoken>=0.7
+
+# Typed data models for graph nodes and {graph node, commit} artifact references
+pydantic>=2.7
+
+# Config + secrets
+python-dotenv>=1.0
+PyYAML>=6.0
+
+# Eval-harness results / tables shown in the Streamlit app
+pandas>=2.2
+
+# ── Optional (uncomment when you need them) ──────────────────
+# kuzu>=0.4.0                 # embedded graph DB, faster than NetworkX at scale
+# lancedb>=0.9.0              # alternative embedded vector store
+# sentence-transformers>=3.0  # local code-embedding models (pulls in torch)
+# anthropic>=0.30             # direct Anthropic SDK (litellm already covers it)
+# openai>=1.30                # direct OpenAI SDK (litellm already covers it)
+# streamlit-agraph>=0.0.45    # interactive code-graph viz inside Streamlit (Phase 1)
+# ragas>=0.1.9                # RAG eval metrics (groundedness / faithfulness)
+
+# Learning media (Phase 6)
+python-pptx>=0.6.23           # auto slide decks (.pptx)
+# edge-tts>=6.1                # optional: two-voice audio overview (needs pydub)
+# pydub>=0.25                  # optional: stitch the audio segments

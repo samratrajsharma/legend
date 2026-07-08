@@ -1,0 +1,81 @@
+# ─────────────────────────────────────────────────────────────
+# KnowIT — .gitignore
+# NOTE: git has no inline comments. Every comment must be on its own line;
+# "pattern   # comment" would be treated as a literal pattern.
+# ─────────────────────────────────────────────────────────────
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+.python-version
+
+# Python bytecode / caches
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.eggs/
+build/
+dist/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.ipynb_checkpoints/
+
+# Secrets & local config — NEVER commit API keys
+.env
+.env.*
+!.env.example
+*.key
+.streamlit/secrets.toml
+
+# KnowIT runtime data (regenerable — keep out of git)
+.knowit_cache/
+data/
+.cache/
+
+# Cloned / target repositories under analysis
+repos/
+
+# Generated git-history demo repo (scripts/make_demo_history.py)
+_demo_history/
+
+# Chroma persistent store + local DBs
+chroma/
+*.chroma
+chroma.sqlite3
+*.sqlite
+*.sqlite3
+*.duckdb
+
+# Vector / graph indexes, generated artifacts, eval outputs, cache pickles, diagram exports
+index/
+artifacts/
+eval_runs/
+*.pkl
+*.mmd
+
+# tree-sitter compiled grammars
+*.so
+*.dll
+*.dylib
+grammars/build/
+
+# Local models (on-device embeddings / LLMs)
+models/
+*.gguf
+*.bin
+*.onnx
+
+# Logs
+*.log
+logs/
+
+# OS / editor cruft
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
