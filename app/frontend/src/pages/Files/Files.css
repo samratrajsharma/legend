@@ -127,3 +127,24 @@
   white-space: pre;
   overflow: auto;
 }
+
+/* ── Function detail panel (#4) ───────────────────────────────── */
+.fnpanel__overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.62);
+  display: flex; align-items: center; justify-content: center; z-index: 1000; padding: 24px; }
+.fnpanel { width: min(940px, 96vw); max-height: 88vh; display: flex; flex-direction: column; }
+.fnpanel__head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.fnpanel__head h3 { display: flex; align-items: center; gap: 10px; margin: 0; }
+.fnpanel__kind { font-size: 11px; text-transform: uppercase; letter-spacing: .04em; opacity: .55; }
+.fnpanel__sub { font-size: 12px; opacity: .7; margin-top: 4px; }
+.fnpanel__body { overflow: auto; padding: 6px 2px 2px; display: flex; flex-direction: column; gap: 16px; }
+.fnpanel__label { font-size: 11px; text-transform: uppercase; letter-spacing: .05em; opacity: .55; margin-bottom: 6px; }
+.fnpanel__explain { white-space: pre-wrap; font-family: inherit; font-size: 13.5px; line-height: 1.6; margin: 0; }
+.fnpanel__rels { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.fnpanel__chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.fnpanel__muted { opacity: .5; }
+.fnpanel__code { max-height: 320px; }
+.btn--ghost { background: none; border: 1px solid transparent; cursor: pointer; font-size: 15px; opacity: .7; color: inherit; border-radius: 6px; padding: 2px 8px; }
+.btn--ghost:hover { opacity: 1; }
+.files__symbol-chip--btn { font: inherit; border: 1px solid transparent; cursor: pointer; }
+.files__symbol-chip--btn:hover { border-color: var(--kyc-accent, #1DB954); filter: brightness(1.12); }
+@media (max-width: 640px) { .fnpanel__rels { grid-template-columns: 1fr; } }

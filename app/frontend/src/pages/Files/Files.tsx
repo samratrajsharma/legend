@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { kycApi } from '../../api/client';
+import { kycApi, FunctionExplainResponse } from '../../api/client';
 import './Files.css';
 
 // ─────────────────────────────────────────────────────────────────
@@ -102,6 +102,10 @@ export default function Files() {
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [filter, setFilter] = useState('');
   const [byLanguage, setByLanguage] = useState<Record<string, string[]>>({});
+  const [fnOpen, setFnOpen] = useState<{ file: string; symbol: string } | null>(null);
+  const [fnData, setFnData] = useState<FunctionExplainResponse | null>(null);
+  const [fnLoading, setFnLoading] = useState(false);
+  const [fnError, setFnError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!repoId) return;
@@ -166,6 +170,22 @@ export default function Files() {
       return next;
     });
   };
+
+  const openFn = (file: string, symbol: string) => {
+    if (!repoId) return;
+    setFnOpen({ file, symbol }); setFnData(null); setFnError(null); setFnLoading(true);
+    kycApi.explainFunction(repoId, file, symbol)
+      .then(r => setFnData(r.data))
+      .catch(e => setFnError(e?.response?.data?.detail || 'Explain failed'))
+      .finally(() => setFnLoading(false));
+  };
+  const closeFn = () => { setFnOpen(null); setFnData(null); setFnError(null); };
+  useEffect(() => {
+    if (!fnOpen) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') closeFn(); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [fnOpen]);
 
   return (
     <div>
@@ -233,9 +253,15 @@ export default function Files() {
                           <div className="files__defines-label">Defines</div>
                           <div className="files__defines-list">
                             {summary.defines.slice(0, 24).map((d: any) => (
-                              <span key={d.symbol} className="files__symbol-chip" title={`lines ${d.lines}`}>
+                              <button
+                                type="button"
+                                key={d.symbol}
+                                className="files__symbol-chip files__symbol-chip--btn"
+                                title={`lines ${d.lines} — click to explain`}
+                                onClick={() => openFn(selected!, d.symbol)}
+                              >
                                 <code>{d.symbol}</code>
-                              </span>
+                              </button>
                             ))}
                           </div>
                         </div>
@@ -249,6 +275,76 @@ export default function Files() {
           )}
         </div>
       </div>
+
+      {fnOpen && (
+        <div className="fnpanel__overlay" onClick={closeFn}>
+          <div className="fnpanel card" onClick={e => e.stopPropagation()}>
+            <div className="card-header fnpanel__head">
+              <div>
+                <h3>
+                  {fnData?.name || fnOpen.symbol}
+                  {fnData?.kind && <span className="fnpanel__kind">{fnData.kind}</span>}
+                </h3>
+                <div className="fnpanel__sub">
+                  <code>{fnOpen.file}</code>{fnData ? `  ·  lines ${fnData.line_start}-${fnData.line_end}` : ''}
+                </div>
+              </div>
+              <button type="button" className="btn--ghost" onClick={closeFn} title="Close (Esc)">✕</button>
+            </div>
+
+            <div className="fnpanel__body">
+              {fnError && <div className="toast toast--err">{fnError}</div>}
+
+              <div className="fnpanel__section">
+                <div className="fnpanel__label">Explanation</div>
+                {fnLoading ? (
+                  <div className="dash-loading">Explaining…</div>
+                ) : fnData?.explanation ? (
+                  <pre className="fnpanel__explain">{fnData.explanation}</pre>
+                ) : fnData && !fnData.used_llm ? (
+                  <div className="toast toast--err">{fnData.reason || 'Connect a model in Settings to get explanations.'}</div>
+                ) : null}
+              </div>
+
+              {fnData && (fnData.callers.length > 0 || fnData.callees.length > 0) && (
+                <div className="fnpanel__rels">
+                  <div>
+                    <div className="fnpanel__label">Called by ({fnData.callers.length})</div>
+                    <div className="fnpanel__chips">
+                      {fnData.callers.length === 0
+                        ? <span className="fnpanel__muted">—</span>
+                        : fnData.callers.map((c, i) => (
+                            <button key={i} type="button" className="files__symbol-chip files__symbol-chip--btn"
+                                    title={c.file} onClick={() => openFn(c.file, c.name)}>
+                              <code>{c.name}</code>
+                            </button>
+                          ))}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="fnpanel__label">Calls ({fnData.callees.length})</div>
+                    <div className="fnpanel__chips">
+                      {fnData.callees.length === 0
+                        ? <span className="fnpanel__muted">—</span>
+                        : fnData.callees.map((c, i) => (
+                            <button key={i} type="button" className="files__symbol-chip files__symbol-chip--btn"
+                                    title={c.file} onClick={() => openFn(c.file, c.name)}>
+                              <code>{c.name}</code>
+                            </button>
+                          ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              <div className="fnpanel__section">
+                <div className="fnpanel__label">Source</div>
+                <pre className="files__code fnpanel__code">{fnData?.code || ''}</pre>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
