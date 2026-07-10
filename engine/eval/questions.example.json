@@ -1,0 +1,14 @@
+{
+  "questions": [
+    {"id": "q1", "question": "How does the inference flow work end to end?", "expect_files": ["infer.py"], "expect_keywords": ["preprocess", "predict", "postprocess"]},
+    {"id": "q2", "question": "Where is the model initialized?", "expect_files": ["model.py"], "expect_keywords": ["__init__", "load_weights"]},
+    {"id": "q3", "question": "Where is the API entry point / detect endpoint?", "expect_files": ["api.py"], "expect_keywords": ["detect", "run_inference"]},
+    {"id": "q4", "question": "How does training start and what loss is used?", "expect_files": ["train.py"], "expect_keywords": ["train", "focal_loss"]},
+    {"id": "q5", "question": "Why is focal loss used?", "expect_files": ["losses.py"], "expect_keywords": ["focal_loss", "imbalance"]},
+    {"id": "q6", "question": "How are images preprocessed before the model?", "expect_files": ["data.py"], "expect_keywords": ["preprocess", "tensor"]},
+    {"id": "q7", "question": "What does the Detector predict method do?", "expect_files": ["model.py"], "expect_keywords": ["predict", "boxes"]},
+    {"id": "q8", "question": "How is postprocessing of detections done?", "expect_files": ["infer.py"], "expect_keywords": ["postprocess", "score"]},
+    {"id": "q9", "question": "Which file defines focal loss and cross entropy?", "expect_files": ["losses.py"], "expect_keywords": ["focal_loss", "cross_entropy"]},
+    {"id": "q10", "question": "What is the overall architecture of this service?", "expect_files": ["README.md"], "expect_keywords": ["detection", "inference"]}
+  ]
+}
