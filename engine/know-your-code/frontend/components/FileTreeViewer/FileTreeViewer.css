@@ -1,0 +1,9 @@
+.kyc-tree { max-height:520px; overflow:auto; padding:6px; font-size:13px; }
+.kyc-tree-dir { display:flex; align-items:center; gap:6px; padding:4px 6px; cursor:pointer; color:var(--dash-text);
+  border-radius:6px; font-weight:600; }
+.kyc-tree-dir:hover { background:var(--dash-surface-hover); }
+.kyc-tree-caret { font-size:10px; color:var(--dash-text-muted); width:10px; }
+.kyc-tree-file { padding:4px 6px; cursor:pointer; color:var(--dash-text-secondary); border-radius:6px;
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.kyc-tree-file:hover { background:var(--dash-surface-hover); color:var(--dash-text); }
+.kyc-tree-file--sel { background:var(--dash-primary-dim); color:var(--dash-primary); font-weight:600; }

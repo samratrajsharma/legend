@@ -1,0 +1,13 @@
+.kyc-card { background:var(--dash-surface); border:1px solid var(--dash-border); border-radius:16px; padding:18px;
+  box-shadow:var(--dash-card-shadow); cursor:pointer; transition:transform .2s ease, box-shadow .2s ease;
+  display:flex; flex-direction:column; gap:10px; }
+.kyc-card:hover { transform:translateY(-2px); box-shadow:0 12px 30px rgba(0,0,0,.08); }
+.kyc-card-top { display:flex; justify-content:space-between; align-items:center; gap:10px; }
+.kyc-card-name { font-weight:700; font-size:15px; color:var(--dash-text); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.kyc-card-meta { font-size:12.5px; color:var(--dash-text-secondary); }
+.kyc-card-chips { flex-wrap:wrap; }
+.kyc-card-actions { display:flex; gap:8px; margin-top:4px; }
+.kyc-pill { font-size:11px; font-weight:700; padding:3px 10px; border-radius:100px; white-space:nowrap; }
+.kyc-pill--ok { color:var(--dash-success); background:rgba(16,185,129,.12); }
+.kyc-pill--idx { color:var(--dash-warning); background:rgba(217,119,6,.12); }
+.kyc-pill--err { color:var(--dash-danger); background:rgba(220,38,38,.12); }

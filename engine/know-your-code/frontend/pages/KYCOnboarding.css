@@ -1,0 +1,16 @@
+.kyc-tour-actions { display:flex; gap:8px; }
+.kyc-steps { list-style:none; margin:0; padding:4px; display:flex; flex-direction:column; gap:12px; }
+.kyc-step { display:flex; gap:14px; align-items:flex-start; padding:14px 16px; border:1px solid var(--dash-border);
+  border-radius:14px; background:var(--dash-surface); }
+.kyc-step-n { flex:none; width:28px; height:28px; border-radius:100px; display:flex; align-items:center;
+  justify-content:center; font-weight:700; font-size:13px; color:#fff; background:linear-gradient(90deg,#8b5cf6,#6366f1); }
+.kyc-step-title { font-weight:700; color:var(--dash-text); margin-bottom:4px; }
+.kyc-step-desc { font-size:13.5px; color:var(--dash-text-secondary); line-height:1.55; }
+.kyc-step-file { margin-top:8px; font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:12px;
+  color:var(--dash-primary); background:var(--dash-primary-dim); padding:3px 8px; border-radius:6px; display:inline-block; }
+.kyc-present { padding:28px 30px; }
+.kyc-present-count { font-size:12px; text-transform:uppercase; letter-spacing:.06em; color:var(--dash-text-muted); }
+.kyc-present h2 { font-size:clamp(22px,3vw,30px); font-weight:800; letter-spacing:-.02em; margin:8px 0 12px; }
+.kyc-present p { font-size:15px; line-height:1.65; color:var(--dash-text-secondary); }
+.kyc-present-nav { display:flex; gap:10px; margin-top:22px; }
+.kyc-present-nav .btn--primary { margin-left:auto; }
