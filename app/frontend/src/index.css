@@ -1,0 +1,194 @@
+/* ── Orchestraty design tokens (copied from index.css, then tuned for KnowIT) ── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  color-scheme: dark;   /* render native form controls (inputs, selects, date pickers) dark */
+  --font-primary: 'Montserrat', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+
+  --brand-indigo: #1DB954;
+  --brand-indigo-dark: #1AA34A;
+  --brand-violet: #1ED760;
+  --brand-purple: #4ade80;
+  --brand-cyan: #1ED760;
+  --brand-emerald: #1DB954;
+  --brand-amber: #f59e0b;
+  --brand-red: #ef4444;
+
+  /* Dashboard theme (Spotify dark) */
+  --dash-bg: #0a0a0a;
+  --dash-surface: #161616;
+  --dash-surface-hover: #1f1f1f;
+  --dash-border: #262626;
+  --dash-text: #ffffff;
+  --dash-text-secondary: #a7a7a7;
+  --dash-text-muted: #6f6f6f;
+  --dash-sidebar-width: 260px;
+  --dash-topbar-height: 56px;
+  --dash-primary: var(--brand-indigo);
+  --dash-primary-dim: rgba(29, 185, 84, 0.14);
+  --dash-success: #1DB954;
+  --dash-warning: #d97706;
+  --dash-danger: #ef4444;
+  --dash-card-shadow: 0 2px 10px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.05);
+  --dash-surface-solid: #161616;
+  --dash-surface-active: #262626;
+  --dash-border-solid: #262626;
+  --dash-accent: #1ED760;
+  --dash-glow: 0 0 0 1px rgba(255, 255, 255, 0.04);
+  --color-surface: #141414;
+
+  /* KnowIT accent — Spotify green */
+  --kyc-accent: #1DB954;
+  --kyc-accent-dim: rgba(29, 185, 84, 0.14);
+}
+
+html, body { height: 100%; }
+body {
+  font-family: var(--font-primary);
+  background: var(--dash-bg);
+  color: var(--dash-text);
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+}
+a { text-decoration: none; color: inherit; }
+button { cursor: pointer; border: none; outline: none; font-family: inherit; }
+input, select, textarea { font-family: inherit; }
+
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #404040; border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: #1DB954; }
+
+/* ── Layout primitives ───────────────────────────────────────── */
+.page-header { margin-bottom: 32px; }
+.page-header h1 {
+  font-size: 26px; font-weight: 700; letter-spacing: -0.025em; color: var(--dash-text);
+  margin-bottom: 4px;
+}
+.page-header p { font-size: 13.5px; color: var(--dash-text-secondary); }
+
+.card {
+  background: var(--dash-surface);
+  border: 1px solid var(--dash-border);
+  border-radius: 16px;
+  padding: 24px;
+  box-shadow: var(--dash-card-shadow);
+  margin-bottom: 16px;
+}
+.card-header { margin-bottom: 14px; }
+.card-header h3 {
+  font-size: 15px; font-weight: 700; color: var(--dash-text); letter-spacing: -0.01em;
+}
+
+.empty-state {
+  text-align: center;
+  padding: 48px 24px;
+  color: var(--dash-text-muted);
+}
+.empty-state h3 { font-size: 15px; font-weight: 600; color: var(--dash-text-secondary); margin-bottom: 6px; }
+.empty-state p { font-size: 13px; }
+
+/* ── Buttons ─────────────────────────────────────────────────── */
+.btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 9px 18px; border-radius: 100px;
+  font-size: 13px; font-weight: 600; letter-spacing: -0.005em;
+  transition: transform 0.15s, box-shadow 0.15s, background 0.15s;
+}
+.btn--primary {
+  background: linear-gradient(135deg, var(--brand-indigo) 0%, var(--brand-violet) 100%);
+  color: #fff;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.25);
+}
+.btn--primary:hover { transform: translateY(-1px); box-shadow: 0 12px 24px rgba(0, 0, 0, 0.32); }
+.btn--secondary {
+  background: var(--dash-surface);
+  color: var(--dash-text);
+  border: 1px solid var(--dash-border);
+}
+.btn--secondary:hover { background: var(--dash-surface-hover); border-color: #262626; }
+.btn--sm { padding: 6px 14px; font-size: 12px; }
+.btn:disabled { opacity: 0.55; cursor: not-allowed; transform: none; box-shadow: none; }
+
+/* ── Inputs ──────────────────────────────────────────────────── */
+.input {
+  width: 100%;
+  padding: 10px 14px;
+  background: #0c0c0c;          /* was #fff — invisible white-on-white on the dark theme */
+  border: 1px solid var(--dash-border);
+  border-radius: 10px;
+  font-size: 13.5px;
+  color: var(--dash-text);
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.input::placeholder { color: var(--dash-text-muted); }
+.input:focus {
+  outline: none;
+  border-color: var(--brand-indigo);
+  box-shadow: 0 0 0 3px var(--dash-primary-dim);
+}
+
+/* ── Stat cards (reuses Orchestraty pattern) ─────────────────── */
+.stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 16px;
+  margin-bottom: 20px;
+}
+.stat-card {
+  background: var(--dash-surface);
+  border: 1px solid var(--dash-border);
+  border-radius: 14px;
+  padding: 18px 20px;
+}
+.stat-card__label {
+  font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--dash-text-muted);
+}
+.stat-card__value {
+  font-size: 28px; font-weight: 800; letter-spacing: -0.025em; color: var(--dash-text); margin-top: 4px;
+}
+.stat-card__value--primary { color: var(--dash-primary); }
+.stat-card__value--success { color: var(--dash-success); }
+.stat-card__value--warning { color: var(--dash-warning); }
+
+/* ── Tables ──────────────────────────────────────────────────── */
+.table-wrap { overflow-x: auto; }
+.table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.table th {
+  text-align: left; padding: 10px 12px;
+  font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase;
+  color: var(--dash-text-muted);
+  border-bottom: 1px solid var(--dash-border);
+}
+.table td {
+  padding: 11px 12px;
+  border-bottom: 1px solid var(--dash-border);
+  color: var(--dash-text);
+}
+.table tr:hover td { background: var(--dash-surface-hover); }
+
+/* ── Loading (matches Orchestraty pattern, uses logo spinner) ── */
+.dash-loading {
+  display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 12px;
+  min-height: 240px; color: var(--dash-text-secondary); font-size: 14px;
+}
+.dash-loading::before {
+  content: '';
+  width: 48px; height: 48px;
+  background: url('/orchestraty-icon.svg') center / contain no-repeat;
+  animation: spin 1.2s linear infinite;
+  transform-origin: 50% 50%;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── Toast ───────────────────────────────────────────────────── */
+.toast {
+  padding: 10px 14px; border-radius: 10px;
+  font-size: 13px; font-weight: 600;
+  margin-bottom: 16px;
+  border: 1px solid;
+}
+.toast--ok { background: rgba(5, 150, 105, 0.1); color: #047857; border-color: rgba(5, 150, 105, 0.2); }
+.toast--err { background: rgba(220, 38, 38, 0.1); color: #b91c1c; border-color: rgba(220, 38, 38, 0.2); }
