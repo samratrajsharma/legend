@@ -10,6 +10,9 @@ PROVIDERS = {
     "anthropic":  {"label": "Anthropic",              "key_env": "ANTHROPIC_API_KEY",
                    "prefix": "anthropic/",  "base_url": False,
                    "models": ["claude-3-5-haiku-latest", "claude-3-5-sonnet-latest"]},
+    "gemini":     {"label": "Google Gemini",          "key_env": "GEMINI_API_KEY",
+                   "prefix": "gemini/",     "base_url": False,
+                   "models": ["gemini-2.0-flash", "gemini-1.5-flash", "gemini-1.5-pro"]},
     "groq":       {"label": "Groq",                   "key_env": "GROQ_API_KEY",
                    "prefix": "groq/",       "base_url": False,
                    "models": ["llama-3.3-70b-versatile", "llama-3.1-8b-instant"]},
@@ -24,7 +27,7 @@ PROVIDERS = {
                    "prefix": "openai/",     "base_url": True,
                    "default_base": "http://localhost:8000/v1", "models": []},
 }
-ORDER = ["", "openai", "anthropic", "groq", "ollama", "openrouter", "custom"]
+ORDER = ["", "openai", "anthropic", "gemini", "groq", "ollama", "openrouter", "custom"]
 
 
 def resolve(provider, model, base_url=""):
