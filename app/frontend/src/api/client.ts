@@ -90,6 +90,15 @@ export type LlmProvider = {
 };
 export type LlmConfigBody = { provider: string; model: string; base_url?: string; api_key?: string };
 
+export type FnCall = { id: string; file: string; name: string };
+export type FunctionExplainResponse = {
+  file: string; symbol: string; name: string; kind: string; language: string;
+  line_start: number; line_end: number; complexity: number | null;
+  docstring: string; code: string;
+  callers: FnCall[]; callees: FnCall[];
+  explanation: string | null; used_llm: boolean; reason?: string | null;
+};
+
 export const kycApi = {
   // Repos
   listRepos: () => api.get<RepoListItem[]>('/repos'),
@@ -124,6 +133,8 @@ export const kycApi = {
   // LLM-powered file explanation (for the deep-dive's "LLM" tab)
   explainFile: (rid: string, file: string) =>
     api.get<{ explanation: string | null; used_llm: boolean; reason: string | null }>(`/repos/${rid}/files/explain`, { params: { file } }),
+  explainFunction: (rid: string, file: string, symbol: string, override?: { provider?: string; model?: string; base_url?: string }) =>
+    api.get<FunctionExplainResponse>(`/repos/${rid}/functions/explain`, { params: { file, symbol, ...(override || {}) } }),
 
   // Graph nodes — still needed by Intel/Impact symbol picker.
   graphNodes:    (rid: string) => api.get<{ nodes: string[] }>(`/repos/${rid}/graph/nodes`),

@@ -685,6 +685,102 @@ def file_explain(rid: str, file: str, provider: str = "", model: str = "", base_
     return {"explanation": text, "used_llm": True, "reason": None}
 
 
+# ── LLM-powered single-function / symbol explanation ─────────────
+def _find_symbol(pf, symbol: str):
+    """Find a Symbol in a ParsedFile by qualname or name (tolerant of Class.method vs method)."""
+    if not pf or not symbol:
+        return None
+    for s in pf.symbols:
+        if s.qualname == symbol or s.name == symbol:
+            return s
+    tail = symbol.rsplit(".", 1)[-1]
+    for s in pf.symbols:
+        if s.name == tail or s.qualname.rsplit(".", 1)[-1] == tail:
+            return s
+    return None
+
+
+def _explain_function(sym, pf, callers, callees, model, extra) -> str:
+    """Send one symbol's source + its callers/callees to the model for a structured explanation."""
+    import litellm  # type: ignore
+    rel = ", ".join(c["name"] for c in callers) or "(none found)"
+    cel = ", ".join(c["name"] for c in callees) or "(none found)"
+    system = (
+        "You explain ONE function, method, or class precisely for a developer new to this "
+        "codebase. Ground every statement in the provided code; never invent behaviour. Write "
+        "dense PLAIN TEXT with NO Markdown symbols (no #, *, or backticks). Use these ALL-CAPS "
+        "section headers, each on its own line, with a blank line between sections:\n"
+        "WHAT IT DOES — one or two sentences.\n"
+        "PARAMETERS — each argument and what it means (write 'None' if it takes none).\n"
+        "RETURNS — what it returns (write 'None' if it returns nothing).\n"
+        "HOW IT WORKS — the step-by-step logic, 3 to 6 short points.\n"
+        "EDGE CASES & NOTES — error handling, assumptions, gotchas, complexity worth knowing."
+    )
+    user = (
+        f"SYMBOL: {sym.qualname}  ({sym.kind} in {pf.file}, {pf.language}, "
+        f"lines {sym.start_line}-{sym.end_line}, complexity {getattr(sym, 'complexity', '?')})\n"
+        f"CALLED BY: {rel}\n"
+        f"CALLS: {cel}\n\n"
+        f"SOURCE:\n{(getattr(sym, 'code', '') or '')[:5000]}"
+    )
+    r = litellm.completion(
+        model=model,
+        messages=[{"role": "system", "content": system},
+                  {"role": "user", "content": user}],
+        temperature=0.2, timeout=120, **(extra or {}),
+    )
+    return r["choices"][0]["message"]["content"].strip()
+
+
+@app.get("/api/v1/repos/{rid}/functions/explain")
+def function_explain(rid: str, file: str, symbol: str,
+                     provider: str = "", model: str = "", base_url: str = "") -> dict:
+    """LLM explanation of ONE function/method/class + its callers/callees from the code graph.
+    Returns the symbol's code + relations even with no model configured (explanation=None)."""
+    idx = _require_idx(rid)
+    _sync_llm_config(idx)
+    pf = _find_parsed_file(idx, file)
+    if not pf:
+        raise HTTPException(404, "File not found in index")
+    sym = _find_symbol(pf, symbol)
+    if not sym:
+        raise HTTPException(404, f"Symbol '{symbol}' not found in {pf.file}")
+
+    def _short(node_id: str) -> dict:
+        f, _, q = node_id.partition("::")
+        return {"id": node_id, "file": f, "name": q or f}
+    try:
+        callers = [_short(n) for n in idx.graph.callers(sym.id)]
+        callees = [_short(n) for n in idx.graph.callees(sym.id)]
+    except Exception:
+        callers, callees = [], []
+
+    payload = {
+        "file": pf.file, "symbol": sym.qualname, "name": sym.name, "kind": sym.kind,
+        "language": pf.language, "line_start": sym.start_line, "line_end": sym.end_line,
+        "complexity": getattr(sym, "complexity", None),
+        "docstring": getattr(sym, "docstring", "") or "",
+        "code": getattr(sym, "code", "") or "",
+        "callers": callers, "callees": callees,
+    }
+
+    if model.strip():
+        full, extra = engine_providers.resolve(provider.strip(), model.strip(), base_url.strip())
+    else:
+        full, extra = idx.config.llm_model, getattr(idx.config, "llm_kwargs", {})
+    if not full:
+        payload.update({"explanation": None, "used_llm": False,
+                        "reason": "Open AI settings to connect a local Ollama model or a provider key, then re-open."})
+        return payload
+    try:
+        payload["explanation"] = _explain_function(sym, pf, callers, callees, full, extra)
+        payload["used_llm"] = True
+        payload["reason"] = None
+    except Exception as e:
+        raise HTTPException(500, f"LLM explain failed: {type(e).__name__}: {e}")
+    return payload
+
+
 @app.get("/api/v1/codemap/status")
 def codemap_status() -> dict:
     """Tiny diagnostic the frontend can show to surface install issues."""
