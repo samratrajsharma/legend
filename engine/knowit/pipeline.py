@@ -12,7 +12,7 @@ from .graph import build_graph
 from .chunking import make_chunks
 from .index import BM25Retriever, ChromaRetriever
 from .retrieval import hybrid_search, assemble_context
-from .llm import synthesize
+from .llm import synthesize, synthesize_stream
 
 
 class RepoIndex:
@@ -55,6 +55,14 @@ class RepoIndex:
                                   self.config.llm_kwargs)
         return {"question": query, "answer": answer, "used_llm": used,
                 "retrieved": retrieved, "context": context}
+
+    def ask_stream(self, query):
+        """Streaming variant of ask(): returns (retrieved, context, token_generator)."""
+        retrieved = self.search(query)
+        context = assemble_context(retrieved)
+        tokens = synthesize_stream(query, context, self.config.llm_model,
+                                   self.config.llm_kwargs)
+        return retrieved, context, tokens
 
 
 # ---------------- cache + multi-repo registry ----------------

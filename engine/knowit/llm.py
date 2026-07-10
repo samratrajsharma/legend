@@ -61,3 +61,42 @@ def explain_file(summary, code_excerpt, model, extra=None):
         return r["choices"][0]["message"]["content"].strip()
     except Exception as e:
         return f"[LLM unavailable: {type(e).__name__}: {e}]"
+
+
+def _stream_text(chunk):
+    """Extract token text from a litellm streaming chunk, defensively."""
+    try:
+        choices = getattr(chunk, "choices", None)
+        if choices is None and isinstance(chunk, dict):
+            choices = chunk.get("choices")
+        ch = choices[0] if choices else None
+    except Exception:
+        ch = None
+    if ch is None:
+        return None
+    delta = getattr(ch, "delta", None)
+    if delta is None and isinstance(ch, dict):
+        delta = ch.get("delta")
+    if delta is None:
+        return None
+    tok = getattr(delta, "content", None)
+    if tok is None and isinstance(delta, dict):
+        tok = delta.get("content")
+    return tok
+
+
+def synthesize_stream(question, context, model, extra=None):
+    """Yield answer text chunks as they stream from the model. Assumes `model` is set."""
+    import litellm
+    resp = litellm.completion(
+        model=model,
+        messages=[
+            {"role": "system", "content": SYSTEM},
+            {"role": "user", "content": f"Question: {question}\n\nCode context:\n{context}"},
+        ],
+        **(extra or {}), temperature=0.1, timeout=60, stream=True,
+    )
+    for chunk in resp:
+        tok = _stream_text(chunk)
+        if tok:
+            yield tok
