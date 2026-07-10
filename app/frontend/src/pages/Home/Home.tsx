@@ -4,6 +4,23 @@ import { kycApi, RepoListItem, WorkspaceFolder } from '../../api/client';
 import './Home.css';
 import { GLOSSARY } from '../../lib/glossary';
 
+// The backend sometimes only has the repo id — derive a friendly name from the source path/URL.
+function looksLikeId(s?: string) { return !!s && /^[0-9a-f]{10,}$/i.test(s); }
+function nameFromSource(src?: string): string {
+  if (!src) return '';
+  const s = src.replace(/\\/g, '/').replace(/\/+$/, '');
+  const gh = s.match(/(?:github\.com|gitlab\.com|bitbucket\.org)[/:]([^/]+)\/([^/]+?)(?:\.git)?$/i);
+  if (gh) return `${gh[1]}/${gh[2]}`;
+  let base = s.split('/').pop() || s;
+  if (base.endsWith('.git')) base = base.slice(0, -4);
+  return base || src;
+}
+function displayName(f: WorkspaceFolder): string {
+  if (f.name && !looksLikeId(f.name)) return f.name;
+  return nameFromSource(f.source) || f.name || f.rid;
+}
+function isGit(src?: string) { return !!src && /(^git@|https?:\/\/|\.git$)/i.test(src); }
+
 export default function Home() {
   const [source, setSource] = useState('');
   const [repos, setRepos] = useState<RepoListItem[]>([]);
@@ -19,8 +36,6 @@ export default function Home() {
   };
   useEffect(() => { loadLists(); }, []);
 
-  // Poll the backend until the repo finishes indexing (or errors), updating the
-  // progress bar as stages report in.
   const pollUntilReady = (rid: string): Promise<void> =>
     new Promise((resolve, reject) => {
       const tick = () => {
@@ -35,7 +50,6 @@ export default function Home() {
       tick();
     });
 
-  // Connect (or instantly reuse) a source, wait for indexing, then open it.
   const connectAndGo = async (src: string) => {
     setConnecting(true); setError(null); setProgress({ pct: 0, message: 'Starting…' });
     try {
@@ -60,123 +74,107 @@ export default function Home() {
     folders.forEach(f => map.set(f.rid, { ...f }));
     repos.forEach(r => {
       const ex = map.get(r.repo_id);
-      if (ex) ex.connected = true;
-      else map.set(r.repo_id, { rid: r.repo_id, name: r.name, source: r.source, captures: 0, last_ts: null, last_summary: null, metrics: null, connected: true });
+      if (ex) {
+        ex.connected = true;
+        if (r.name && !looksLikeId(r.name)) ex.name = r.name;
+        if (!ex.source) ex.source = r.source;
+      } else {
+        map.set(r.repo_id, { rid: r.repo_id, name: r.name, source: r.source, captures: 0, last_ts: null, last_summary: null, metrics: null, connected: true });
+      }
     });
     return Array.from(map.values());
   })();
 
-  const connect = () => {
-    if (source.trim()) connectAndGo(source.trim());
-  };
+  const connect = () => { if (source.trim()) connectAndGo(source.trim()); };
 
   return (
-    <div>
+    <div className="kyc-home">
       <div className="page-header">
         <h1>Connect a codebase</h1>
-        <p>Paste a local path or git URL. KnowIT will parse it, build a code graph, and index it for semantic search.</p>
+        <p>Paste a local path or Git URL — KnowIT parses it, builds a code graph, and indexes it for search.</p>
       </div>
 
-      <div className="card kyc-start">
-        <div className="card-header"><h3>Getting started</h3></div>
-        <div className="kyc-start__steps">
-          <div className="kyc-start__step">
-            <span className="kyc-start__n">1</span>
-            <div><strong>Connect a codebase</strong><p>Paste a local folder path or a public Git URL below.</p></div>
-          </div>
-          <div className="kyc-start__arrow">→</div>
-          <div className="kyc-start__step">
-            <span className="kyc-start__n">2</span>
-            <div><strong>KnowIT indexes it</strong><p>Parses your code into symbols, builds a graph, and embeds it for search — cached after the first run.</p></div>
-          </div>
-          <div className="kyc-start__arrow">→</div>
-          <div className="kyc-start__step">
-            <span className="kyc-start__n">3</span>
-            <div><strong>Explore the tabs</strong><p>Overview, Files, Diagrams, Ask, Learn, Track and more — each reads the indexed repo.</p></div>
-          </div>
-        </div>
-        <p className="kyc-start__note">
-          Want generated answers in <strong>Ask</strong> and <strong>Learn</strong>? Connect a model
-          (local Ollama or a cloud key) in <Link to="/settings" className="kyc-start__link">AI settings</Link>.
-          Everything else works without one.
-        </p>
-      </div>
-
-      <div className="card kyc-home__connect">
-        <div className="card-header"><h3>New connection</h3></div>
-        {error && <div className="toast toast--err">{error}</div>}
-        <div className="kyc-home__row">
+      <div className="card kyc-connect">
+        {error && <div className="toast toast--err" style={{ marginBottom: 12 }}>{error}</div>}
+        <div className="kyc-connect__row">
           <input
-            className="input"
-            placeholder="C:\path\to\repo  or  https://github.com/owner/repo.git"
+            className="input kyc-connect__input"
+            placeholder="C:\path\to\repo    or    https://github.com/owner/repo.git"
             value={source}
             onChange={e => setSource(e.target.value)}
             onKeyDown={e => { if (e.key === 'Enter') connect(); }}
             disabled={connecting}
             autoFocus
           />
-          <button className="btn btn--primary" onClick={connect} disabled={connecting || !source.trim()}>
+          <button className="btn btn--primary kyc-connect__btn" onClick={connect} disabled={connecting || !source.trim()}>
             {connecting ? 'Indexing…' : 'Connect'}
           </button>
         </div>
-        <p className="kyc-home__hint">
-          Tip: the engine clones git URLs with depth 200 and caches parsed indexes by signature.
-          Re-connecting the same source is instant.
-        </p>
-        {connecting && (
-          <div style={{ marginTop: 14 }}>
-            <div style={{ height: 8, background: 'rgba(127,127,127,0.18)', borderRadius: 999, overflow: 'hidden' }}>
-              <div style={{ height: '100%', width: `${Math.max(4, progress.pct)}%`, background: 'var(--kyc-accent, #1DB954)', transition: 'width .3s ease' }} />
-            </div>
-            <div style={{ marginTop: 8, fontSize: 13, color: 'var(--kyc-muted, #6b7280)' }}>
-              {progress.message || 'Working…'}{progress.pct ? ` · ${progress.pct}%` : ''}
-            </div>
+
+        {connecting ? (
+          <div className="kyc-connect__prog">
+            <div className="kyc-connect__bar"><div className="kyc-connect__fill" style={{ width: `${Math.max(4, progress.pct)}%` }} /></div>
+            <div className="kyc-connect__prog-msg">{progress.message || 'Working…'}{progress.pct ? ` · ${progress.pct}%` : ''}</div>
           </div>
+        ) : (
+          <div className="kyc-connect__hint">Clones Git URLs at depth 200 · re-connecting the same source is instant (cached).</div>
         )}
+
+        <details className="kyc-steps">
+          <summary className="kyc-steps__summary">
+            <span className="kyc-steps__dot" />
+            How it works: connect → index → explore the tabs
+            <span className="kyc-steps__more">details</span>
+          </summary>
+          <div className="kyc-steps__body">
+            <div className="kyc-steps__row"><span className="kyc-steps__n">1</span><span><b>Connect</b> a local folder or a public Git URL above.</span></div>
+            <div className="kyc-steps__row"><span className="kyc-steps__n">2</span><span><b>KnowIT indexes it</b> — symbols, a code graph, and embeddings. Cached after the first run.</span></div>
+            <div className="kyc-steps__row"><span className="kyc-steps__n">3</span><span><b>Explore</b> Overview, Files, Diagrams, Ask, Learn, Track and more.</span></div>
+            <div className="kyc-steps__note">Want generated answers in <b>Ask</b> and <b>Learn</b>? Add a model (local Ollama or a cloud key) in <Link to="/settings" className="kyc-link">AI settings</Link> — everything else works without one.</div>
+          </div>
+        </details>
       </div>
 
       <div className="card">
-        <div className="card-header"><h3>Your tracked folders ({merged.length})</h3></div>
+        <div className="card-header"><h3>Your codebases <span className="kyc-count">{merged.length}</span></h3></div>
         {merged.length === 0 ? (
-          <div className="empty-state">
-            <h3>No folders yet</h3>
-            <p>Connect one above to begin tracking it over time.</p>
-          </div>
+          <div className="empty-state"><h3>No codebases yet</h3><p>Connect one above to start tracking it over time.</p></div>
         ) : (
           <div className="kyc-home__list">
-            {merged.map(f => (
-              <button
-                key={f.rid}
-                type="button"
-                className="kyc-home__item"
-                onClick={() => openFolder(f)}
-                title={f.source}
-              >
-                <div className="kyc-home__item-main">
-                  <div className="kyc-home__item-name">{f.name}</div>
-                  <div className="kyc-home__item-source">{f.source}</div>
-                  {f.last_summary && <div className="kyc-home__item-change">Last change: {f.last_summary}</div>}
-                </div>
-                <div className="kyc-home__item-meta">
-                  {f.captures > 0
-                    ? <span className="kyc-home__status kyc-home__status--ready">{f.captures} capture{f.captures === 1 ? '' : 's'}</span>
-                    : <span className="kyc-home__status">not captured</span>}
-                  {f.last_ts && <span className="kyc-home__commit">{new Date(f.last_ts).toLocaleDateString()}</span>}
-                  {!f.connected && <span className="kyc-home__commit">offline</span>}
-                </div>
-              </button>
-            ))}
+            {merged.map(f => {
+              const nm = displayName(f);
+              return (
+                <button key={f.rid} type="button" className={'kyc-folder' + (f.connected ? ' kyc-folder--live' : '')} onClick={() => openFolder(f)} title={f.source || nm}>
+                  <span className="kyc-folder__icon">{isGit(f.source) ? '⎇' : '▣'}</span>
+                  <div className="kyc-folder__main">
+                    <div className="kyc-folder__name">{nm}</div>
+                    {f.source && <div className="kyc-folder__source">{f.source}</div>}
+                    {f.last_summary && <div className="kyc-folder__change">↳ {f.last_summary}</div>}
+                  </div>
+                  <div className="kyc-folder__meta">
+                    {f.connected ? <span className="kyc-pill kyc-pill--live">● live</span> : <span className="kyc-pill">offline</span>}
+                    {f.captures > 0 && <span className="kyc-pill kyc-pill--soft">{f.captures} capture{f.captures === 1 ? '' : 's'}</span>}
+                    {f.last_ts && <span className="kyc-folder__date">{new Date(f.last_ts).toLocaleDateString()}</span>}
+                  </div>
+                </button>
+              );
+            })}
           </div>
         )}
       </div>
 
-      <details className="card kyc-glossary">
-        <summary className="kyc-glossary__summary">What the metrics mean</summary>
-        <div className="kyc-glossary__grid">
+      <details className="card kyc-ref">
+        <summary className="kyc-ref__summary">
+          <span className="kyc-ref__icon">i</span>
+          <span className="kyc-ref__title">Reference — what the metrics mean</span>
+          <span className="kyc-ref__hint">{GLOSSARY.length} terms</span>
+          <span className="kyc-ref__chev">▸</span>
+        </summary>
+        <div className="kyc-ref__grid">
           {GLOSSARY.map(g => (
-            <div key={g.term} className="kyc-glossary__item">
-              <div className="kyc-glossary__term">{g.term}</div>
-              <div className="kyc-glossary__def">{g.def}</div>
+            <div key={g.term} className="kyc-ref__item">
+              <div className="kyc-ref__term">{g.term}</div>
+              <div className="kyc-ref__def">{g.def}</div>
             </div>
           ))}
         </div>

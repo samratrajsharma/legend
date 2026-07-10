@@ -38,8 +38,8 @@
   --color-surface: #141414;
 
   /* KnowIT accent — Spotify green */
-  --kyc-accent: #1DB954;
-  --kyc-accent-dim: rgba(29, 185, 84, 0.14);
+  --kyc-accent: #1ED760;
+  --kyc-accent-dim: rgba(30, 215, 96, 0.18);
 }
 
 html, body { height: 100%; }
