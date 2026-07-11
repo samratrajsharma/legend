@@ -65,6 +65,39 @@ def _bases(node):
     return out
 
 
+# Module-level defs can hide inside compound statements - the classic case is a
+# try/except import fallback, or an `if TYPE_CHECKING:` / `if sys.platform` guard.
+# The old code only iterated tree.body, so those defs were invisible to the graph,
+# search, Files "Defines", and Ask (QA finding G-01). Walk into block bodies, but
+# stop at any def/class boundary (a class handles its own methods; functions' inner
+# defs are locals, intentionally not indexed as top-level symbols).
+_BLOCK_STMTS = (ast.If, ast.Try, ast.With, ast.AsyncWith,
+                ast.For, ast.AsyncFor, ast.While)
+
+
+def _block_suites(node):
+    suites = []
+    for attr in ("body", "orelse", "finalbody"):
+        v = getattr(node, attr, None)
+        if isinstance(v, list):
+            suites.append(v)
+    if isinstance(node, ast.Try):
+        for h in node.handlers:
+            suites.append(h.body)
+    return suites
+
+
+def _module_defs(body):
+    """Yield top-level function/class defs, descending through compound statements
+    but not into other defs/classes."""
+    for node in body:
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+            yield node
+        elif isinstance(node, _BLOCK_STMTS):
+            for suite in _block_suites(node):
+                yield from _module_defs(suite)
+
+
 def parse_python(rel_path, source):
     pf = ParsedFile(file=rel_path, language="python", text=source,
                     loc=source.count("\n") + 1)
@@ -107,9 +140,8 @@ def parse_python(rel_path, source):
                 if isinstance(b, (ast.FunctionDef, ast.AsyncFunctionDef)):
                     add_symbol(b, qual + ".", parent=qual)
 
-    for node in tree.body:
-        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
-            add_symbol(node, "", parent=None)
+    for node in _module_defs(tree.body):
+        add_symbol(node, "", parent=None)
     for cls in [x for x in pf.symbols if x.kind == "class"]:
         cls.complexity = sum(m.complexity for m in pf.symbols
                              if m.parent == cls.qualname) or 1

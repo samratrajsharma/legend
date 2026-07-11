@@ -16,6 +16,17 @@ def _truncate(text, max_lines):
 
 def make_chunks(parsed_files, commit, max_lines=160):
     chunks = []
+    # Chunk .id is the primary key for both the BM25 dict and Chroma's col.add.
+    # Two top-level symbols with the same qualname (a redefinition, or a try/except
+    # import fallback - now that G-01 surfaces those) produce the same s.id, hence a
+    # duplicate chunk id, and Chroma REJECTS duplicate ids -> indexing fails for the
+    # whole repo (QA finding G-02). Uniquify the id here while leaving node_id/symbol_id
+    # pointing at the real symbol so retrieval still maps back to the graph correctly.
+    _used = {}
+    def uid(base):
+        n = _used.get(base, 0)
+        _used[base] = n + 1
+        return base if n == 0 else f"{base}#{n + 1}"
     for pf in parsed_files:
         if pf.language in ("python", "javascript", "typescript"):
             sym_names = ", ".join(s.qualname for s in pf.symbols) or "(no top-level symbols)"
@@ -23,7 +34,7 @@ def make_chunks(parsed_files, commit, max_lines=160):
                       f"imports: {', '.join(pf.imports) or 'none'}\n"
                       f"defines: {sym_names}")
             chunks.append(Chunk(
-                id=_hash(pf.file, "module"), file=pf.file, kind="module", name=pf.file,
+                id=uid(_hash(pf.file, "module")), file=pf.file, kind="module", name=pf.file,
                 start_line=1, end_line=pf.loc, text=header,
                 node_id=pf.file, commit=commit, symbol_id=None,
             ))
@@ -31,13 +42,13 @@ def make_chunks(parsed_files, commit, max_lines=160):
                 body = _truncate(s.code, max_lines)
                 text = (f"{pf.file} :: {s.qualname}  [{s.kind}]\n{s.docstring}\n{body}").strip()
                 chunks.append(Chunk(
-                    id=_hash(s.id), file=pf.file, kind="symbol", name=s.qualname,
+                    id=uid(_hash(s.id)), file=pf.file, kind="symbol", name=s.qualname,
                     start_line=s.start_line, end_line=s.end_line, text=text,
                     node_id=s.id, commit=commit, symbol_id=s.id,
                 ))
         elif pf.text.strip():
             chunks.append(Chunk(
-                id=_hash(pf.file, "doc"), file=pf.file, kind="doc", name=pf.file,
+                id=uid(_hash(pf.file, "doc")), file=pf.file, kind="doc", name=pf.file,
                 start_line=1, end_line=pf.loc, text=_truncate(pf.text, max_lines * 2),
                 node_id=pf.file, commit=commit, symbol_id=None,
             ))
