@@ -7,6 +7,7 @@ import stat
 import subprocess
 import sys
 import time
+import urllib.parse
 from .models import RepoMeta
 
 SKIP_DIRS = {".git", ".knowit_cache", "__pycache__", "node_modules", ".venv",
@@ -37,6 +38,35 @@ def is_git_source(src):
     return (s.startswith(("http://", "https://", "git@"))
             or s.endswith(".git")
             or bool(_URL_RE.match(s)))
+
+
+# git transports we permit. Everything else - notably ext:: (runs an arbitrary shell
+# command as the "transport") and file:// (local-repo read / SSRF) - is rejected. This
+# is the RCE gate: is_git_source() lets "ext::sh -c ... .git" through because it ends in
+# .git, so the real defence has to happen here, right before we hand a string to git.
+_ALLOWED_GIT_SCHEMES = {"http", "https", "ssh", "git"}
+
+
+def validate_git_url(url):
+    """Return url if safe to clone; raise ValueError otherwise. Rejects argument
+    injection (leading '-') and dangerous transports (ext::, file://, fd::, ...);
+    allows http(s)/ssh/git and scp-style git@host:path."""
+    u = (url or "").strip()
+    if not u:
+        raise ValueError("a repository URL is required")
+    if u.startswith("-"):
+        raise ValueError("invalid repository URL (starts with '-')")
+    parsed = urllib.parse.urlparse(u)
+    if parsed.scheme:
+        if parsed.scheme.lower() not in _ALLOWED_GIT_SCHEMES:
+            raise ValueError(
+                "unsupported git transport %r - only https, ssh and git are allowed "
+                "(ext:: and file:// are blocked for security)" % parsed.scheme)
+    elif "@" in u and ":" in u.split("@", 1)[1]:
+        pass                              # scp-like ssh syntax: git@host:org/repo.git
+    else:
+        raise ValueError("repository URL must use https, ssh, or git")
+    return u
 
 
 def normalize_git_url(url):
@@ -100,6 +130,8 @@ def _git_env():
     env["GCM_INTERACTIVE"] = "never"   # don't pop the Windows credential dialog
     env["GIT_ASKPASS"] = "echo"
     env["GIT_CONFIG_NOSYSTEM"] = "0"
+    # defence in depth: even if a bad URL reached git, restrict the transports it will use
+    env["GIT_ALLOW_PROTOCOL"] = "http:https:ssh:git"
     return env
 
 
@@ -224,7 +256,7 @@ def clone_or_local(source, data_dir):
     """Return an absolute path to a local working copy; clone git URLs on demand."""
     src = (source or "").strip()
     if is_git_source(src):
-        url = normalize_git_url(src)
+        url = validate_git_url(normalize_git_url(src))
         repos = os.path.join(data_dir, "repos")
         os.makedirs(repos, exist_ok=True)
         dest = _dest_for(repos, url, name_from_url(url))
@@ -253,7 +285,7 @@ def clone_or_local(source, data_dir):
         for args in strategies:
             for _attempt in (1, 2):              # one retry absorbs transient blips
                 try:
-                    r = _run_git(["clone"] + args + [url, dest], timeout=CLONE_TIMEOUT)
+                    r = _run_git(["clone"] + args + ["--", url, dest], timeout=CLONE_TIMEOUT)
                 except subprocess.TimeoutExpired:
                     _rm(dest)
                     raise RuntimeError(
