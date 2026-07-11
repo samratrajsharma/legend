@@ -55,6 +55,17 @@ def assemble_context(retrieved, max_blocks=8, max_chars=6000):
         c = r.chunk
         block = f"[{c.file}:{c.start_line}-{c.end_line} :: {c.name}]\n{c.text}"
         if total + len(block) > max_chars:
+            if not blocks:
+                # The single top-ranked chunk is larger than the whole budget. Breaking
+                # here returned EMPTY context, so Ask answered with no code at all - on
+                # exactly the symbol the user asked about (QA finding E-06). Include a
+                # truncated head instead. The head + marker stays within max_chars, so a
+                # realistic 7000-vs-6000 case is served while a budget too small to hold
+                # even the marker still yields "" (degenerate, preserves old contract).
+                mark = "\n... (truncated)"
+                room = max_chars - len(mark)
+                if room > 0:
+                    blocks.append(block[:room].rstrip() + mark)
             break
         blocks.append(block)
         total += len(block)
