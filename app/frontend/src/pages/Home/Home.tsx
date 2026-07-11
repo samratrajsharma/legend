@@ -2,9 +2,8 @@ import { useEffect, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { kycApi, RepoListItem, WorkspaceFolder } from '../../api/client';
 import './Home.css';
-import { GLOSSARY } from '../../lib/glossary';
 
-// The backend sometimes only has the repo id — derive a friendly name from the source path/URL.
+// The backend sometimes only has the repo id — derive a friendly name from the source.
 function looksLikeId(s?: string) { return !!s && /^[0-9a-f]{10,}$/i.test(s); }
 function nameFromSource(src?: string): string {
   if (!src) return '';
@@ -20,6 +19,20 @@ function displayName(f: WorkspaceFolder): string {
   return nameFromSource(f.source) || f.name || f.rid;
 }
 function isGit(src?: string) { return !!src && /(^git@|https?:\/\/|\.git$)/i.test(src); }
+
+const GitIcon = () => (
+  <svg width="17" height="17" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+    <circle cx="4" cy="4" r="1.7" stroke="currentColor" strokeWidth="1.4" />
+    <circle cx="4" cy="12" r="1.7" stroke="currentColor" strokeWidth="1.4" />
+    <circle cx="12" cy="6.5" r="1.7" stroke="currentColor" strokeWidth="1.4" />
+    <path d="M4 5.7v4.6M5.7 4H9.2a1.8 1.8 0 0 1 1.8 1.8v.9" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+  </svg>
+);
+const FolderIcon = () => (
+  <svg width="17" height="17" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+    <path d="M1.8 4.2A1.2 1.2 0 0 1 3 3h3l1.4 1.4H13a1.2 1.2 0 0 1 1.2 1.2v6A1.2 1.2 0 0 1 13 12.8H3a1.2 1.2 0 0 1-1.2-1.2V4.2z" stroke="currentColor" strokeWidth="1.3" />
+  </svg>
+);
 
 export default function Home() {
   const [source, setSource] = useState('');
@@ -110,7 +123,6 @@ export default function Home() {
             {connecting ? 'Indexing…' : 'Connect'}
           </button>
         </div>
-
         {connecting ? (
           <div className="kyc-connect__prog">
             <div className="kyc-connect__bar"><div className="kyc-connect__fill" style={{ width: `${Math.max(4, progress.pct)}%` }} /></div>
@@ -119,42 +131,41 @@ export default function Home() {
         ) : (
           <div className="kyc-connect__hint">Clones Git URLs at depth 200 · re-connecting the same source is instant (cached).</div>
         )}
-
-        <details className="kyc-steps">
-          <summary className="kyc-steps__summary">
-            <span className="kyc-steps__dot" />
-            How it works: connect → index → explore the tabs
-            <span className="kyc-steps__more">details</span>
-          </summary>
-          <div className="kyc-steps__body">
-            <div className="kyc-steps__row"><span className="kyc-steps__n">1</span><span><b>Connect</b> a local folder or a public Git URL above.</span></div>
-            <div className="kyc-steps__row"><span className="kyc-steps__n">2</span><span><b>KnowIT indexes it</b> — symbols, a code graph, and embeddings. Cached after the first run.</span></div>
-            <div className="kyc-steps__row"><span className="kyc-steps__n">3</span><span><b>Explore</b> Overview, Files, Diagrams, Ask, Learn, Track and more.</span></div>
-            <div className="kyc-steps__note">Want generated answers in <b>Ask</b> and <b>Learn</b>? Add a model (local Ollama or a cloud key) in <Link to="/settings" className="kyc-link">AI settings</Link> — everything else works without one.</div>
-          </div>
-        </details>
       </div>
 
-      <div className="card">
-        <div className="card-header"><h3>Your codebases <span className="kyc-count">{merged.length}</span></h3></div>
+      <div className="kyc-home__sec">
+        <div className="kyc-home__sec-head">
+          <span className="kyc-home__sec-title">Your codebases</span>
+          {merged.length > 0 && <span className="kyc-count">{merged.length}</span>}
+        </div>
+
         {merged.length === 0 ? (
-          <div className="empty-state"><h3>No codebases yet</h3><p>Connect one above to start tracking it over time.</p></div>
+          <div className="card kyc-empty">
+            <h3>No codebases yet</h3>
+            <p>Paste a local folder or a public Git URL above to index your first one.</p>
+            <p className="kyc-empty__hint">Want generated answers in Ask and Learn? Add a model (local Ollama or a cloud key) in <Link to="/settings" className="kyc-link">AI settings</Link> — everything else works without one.</p>
+          </div>
         ) : (
-          <div className="kyc-home__list">
+          <div className="kyc-grid">
             {merged.map(f => {
               const nm = displayName(f);
+              const git = isGit(f.source);
               return (
-                <button key={f.rid} type="button" className={'kyc-folder' + (f.connected ? ' kyc-folder--live' : '')} onClick={() => openFolder(f)} title={f.source || nm}>
-                  <span className="kyc-folder__icon">{isGit(f.source) ? '⎇' : '▣'}</span>
-                  <div className="kyc-folder__main">
-                    <div className="kyc-folder__name">{nm}</div>
-                    {f.source && <div className="kyc-folder__source">{f.source}</div>}
-                    {f.last_summary && <div className="kyc-folder__change">↳ {f.last_summary}</div>}
+                <button key={f.rid} type="button" className="kyc-cb" onClick={() => openFolder(f)} title={f.source || nm}>
+                  <div className="kyc-cb__top">
+                    <span className={'kyc-cb__icon' + (git ? ' kyc-cb__icon--git' : '')}>{git ? <GitIcon /> : <FolderIcon />}</span>
+                    <div className="kyc-cb__id">
+                      <div className="kyc-cb__name">{nm}</div>
+                      {f.source && <div className="kyc-cb__source">{f.source}</div>}
+                    </div>
                   </div>
-                  <div className="kyc-folder__meta">
-                    {f.connected ? <span className="kyc-pill kyc-pill--live">● live</span> : <span className="kyc-pill">offline</span>}
+                  {f.last_summary && <div className="kyc-cb__change">{f.last_summary}</div>}
+                  <div className="kyc-cb__foot">
+                    {f.connected
+                      ? <span className="kyc-pill kyc-pill--live"><span className="kyc-dot" />live</span>
+                      : <span className="kyc-pill">offline</span>}
                     {f.captures > 0 && <span className="kyc-pill kyc-pill--soft">{f.captures} capture{f.captures === 1 ? '' : 's'}</span>}
-                    {f.last_ts && <span className="kyc-folder__date">{new Date(f.last_ts).toLocaleDateString()}</span>}
+                    {f.last_ts && <span className="kyc-cb__date">{new Date(f.last_ts).toLocaleDateString()}</span>}
                   </div>
                 </button>
               );
@@ -162,23 +173,6 @@ export default function Home() {
           </div>
         )}
       </div>
-
-      <details className="card kyc-ref">
-        <summary className="kyc-ref__summary">
-          <span className="kyc-ref__icon">i</span>
-          <span className="kyc-ref__title">Reference — what the metrics mean</span>
-          <span className="kyc-ref__hint">{GLOSSARY.length} terms</span>
-          <span className="kyc-ref__chev">▸</span>
-        </summary>
-        <div className="kyc-ref__grid">
-          {GLOSSARY.map(g => (
-            <div key={g.term} className="kyc-ref__item">
-              <div className="kyc-ref__term">{g.term}</div>
-              <div className="kyc-ref__def">{g.def}</div>
-            </div>
-          ))}
-        </div>
-      </details>
     </div>
   );
 }

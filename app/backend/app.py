@@ -1268,7 +1268,22 @@ def workspace() -> dict:
     """All folders we have history for (persisted), with their latest change —
     the multi-folder home. Survives restarts (reads disk, not just memory)."""
     import json
-    base = Path(os.environ.get("KNOWIT_DATA_DIR", str(HERE / ".cache"))) / "tracked"
+    data_dir = Path(os.environ.get("KNOWIT_DATA_DIR", str(HERE / ".cache")))
+    base = data_dir / "tracked"
+    # Older tracked folders have no meta.json, so their name/source is unknown. The connect
+    # registry (repos.json) records {source, name} for everything ever connected, and a folder
+    # id is sha1(source)[:12] — so we can recover the real name by matching ids.
+    registry: dict[str, dict] = {}
+    try:
+        rp = data_dir / "repos.json"
+        if rp.exists():
+            for e in json.loads(rp.read_text(encoding="utf-8")):
+                src = (e.get("source") or "").strip()
+                if src:
+                    registry[_repo_id(src)] = {"name": e.get("name") or _name_from_source(src),
+                                               "source": src}
+    except Exception:
+        registry = {}
     out = []
     if base.exists():
         for d in sorted(base.iterdir()):
@@ -1295,10 +1310,15 @@ def workspace() -> dict:
             last = events[-1] if events else None
             with _REPOS_LOCK:
                 connected = rid in _REPOS and _REPOS[rid].get("status") == "ready"
+            fb = registry.get(rid, {})
+            source = meta.get("source") or fb.get("source") or ""
+            name = meta.get("name") or fb.get("name") or ""
+            if not name or name == rid:
+                name = _name_from_source(source) if source else rid
             out.append({
                 "rid": rid,
-                "name": meta.get("name") or rid,
-                "source": meta.get("source") or "",
+                "name": name,
+                "source": source,
                 "captures": len(events),
                 "last_ts": last.get("ts") if last else None,
                 "last_summary": last.get("summary") if last else None,
