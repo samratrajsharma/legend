@@ -32,7 +32,13 @@ export default function Intel() {
 
 function TechDebt({ rid }: { rid: string }) {
   const [d, setD] = useState<any>(null);
-  useEffect(() => { kycApi.intelTechdebt(rid).then(r => setD(r.data)); }, [rid]);
+  const [err, setErr] = useState<string | null>(null);
+  useEffect(() => {
+    setD(null); setErr(null);
+    kycApi.intelTechdebt(rid).then(r => setD(r.data))
+      .catch(e => setErr(e?.response?.data?.detail || 'Tech-debt analysis failed.'));
+  }, [rid]);
+  if (err) return <div className="card"><div className="toast toast--err">{err}</div></div>;
   if (!d) return <div className="dash-loading">Analyzing…</div>;
   return (
     <>
@@ -111,14 +117,17 @@ function Memory({ rid }: { rid: string }) {
   const [data, setData] = useState<any>(null);
   const [kind, setKind] = useState<'decisions'|'errors'|'memory'>('decisions');
   const [title, setTitle] = useState(''); const [body, setBody] = useState('');
-  const refresh = () => kycApi.intelMemory(rid).then(r => setData(r.data));
-  useEffect(() => { refresh(); }, [rid]);
+  const [err, setErr] = useState<string | null>(null);
+  const refresh = () => kycApi.intelMemory(rid).then(r => setData(r.data))
+    .catch(e => setErr(e?.response?.data?.detail || 'Could not load engineering memory.'));
+  useEffect(() => { setData(null); setErr(null); refresh(); }, [rid]);
   const add = async () => {
     if (!title.trim()) return;
     await kycApi.intelMemoryAdd(rid, kind, title, body);
     setTitle(''); setBody(''); refresh();
   };
   const del = async (k: string, eid: string) => { await kycApi.intelMemoryDel(rid, k, eid); refresh(); };
+  if (err) return <div className="card"><div className="toast toast--err">{err}</div></div>;
   if (!data) return <div className="dash-loading">Loading…</div>;
   return (
     <>

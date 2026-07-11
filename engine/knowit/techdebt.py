@@ -155,26 +155,40 @@ def import_cycles(idx):
     files = [nid for nid, n in g.nodes.items() if n["type"] == "file"]
     adj = {f: list(g.successors(f, "imports")) for f in files}
     color = {f: 0 for f in files}
-    stack, cycles, seen = [], [], set()
+    cycles, seen = [], set()
 
-    def dfs(u):
-        color[u] = 1
-        stack.append(u)
-        for v in adj.get(u, ()):
-            if color.get(v) == 1:
-                cyc = stack[stack.index(v):]
-                key = frozenset(cyc)
-                if len(cyc) > 1 and key not in seen:
-                    seen.add(key)
-                    cycles.append(list(cyc))
-            elif color.get(v) == 0:
-                dfs(v)
-        stack.pop()
-        color[u] = 2
-
-    for f in files:
-        if color[f] == 0:
-            dfs(f)
+    # Iterative three-colour DFS. The recursive version blew Python's stack on a deep
+    # import chain (~1000+), raising RecursionError -> 500 on /intel/techdebt -> the
+    # Tech-debt tab hung forever (QA finding G-06). Same semantics, explicit stack.
+    for root in files:
+        if color[root] != 0:
+            continue
+        path = [root]
+        frames = [(root, iter(adj.get(root, ())))]
+        color[root] = 1
+        while frames:
+            u, it = frames[-1]
+            advanced = False
+            for v in it:
+                cv = color.get(v, 0)
+                if cv == 1:
+                    if v in path:
+                        cyc = path[path.index(v):]
+                        key = frozenset(cyc)
+                        if len(cyc) > 1 and key not in seen:
+                            seen.add(key)
+                            cycles.append(list(cyc))
+                elif cv == 0:
+                    color[v] = 1
+                    path.append(v)
+                    frames.append((v, iter(adj.get(v, ()))))
+                    advanced = True
+                    break
+            if not advanced:
+                color[u] = 2
+                frames.pop()
+                if path and path[-1] == u:
+                    path.pop()
     return cycles
 
 
