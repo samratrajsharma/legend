@@ -62,10 +62,21 @@ class CodeGraph:
                 "node_types": dict(nt), "edge_types": dict(et)}
 
 
+def _module_of(file_rel):
+    """file path -> importable module name(s): 'a/b.py' -> {'a.b', 'b'}."""
+    if not file_rel.endswith(".py"):
+        base = file_rel.rsplit("/", 1)[-1].rsplit(os.sep, 1)[-1]
+        return {base}
+    stem = file_rel[:-3].replace(os.sep, ".").replace("/", ".")
+    return {stem, stem.split(".")[-1]}
+
+
 def build_graph(parsed_files):
     g = CodeGraph()
-    name_index = defaultdict(list)   # base name -> [symbol_id]
-    module_index = {}                # module path -> file rel
+    name_index = defaultdict(list)          # base name -> [symbol_id]  (repo-wide)
+    file_name_index = defaultdict(list)     # (file, name) -> [symbol_id]  (same-file)
+    file_modules = {}                        # symbol_id -> {module names of its file}
+    module_index = {}                        # module path -> file rel
 
     for pf in parsed_files:
         g.add_node(pf.file, "file", {"language": pf.language, "loc": pf.loc,
@@ -74,6 +85,7 @@ def build_graph(parsed_files):
             mod_key = pf.file[:-3].replace(os.sep, ".").replace("/", ".")
             module_index[mod_key] = pf.file
             module_index[mod_key.split(".")[-1]] = pf.file
+        mods = _module_of(pf.file)
         for sym in pf.symbols:
             g.add_node(sym.id, "symbol", {
                 "name": sym.name, "qualname": sym.qualname, "kind": sym.kind,
@@ -83,21 +95,50 @@ def build_graph(parsed_files):
             })
             g.add_edge(pf.file, sym.id, "contains")
             name_index[sym.name].append(sym.id)
+            file_name_index[(pf.file, sym.name)].append(sym.id)
+            file_modules[sym.id] = mods
+
+    def resolve(caller_file, caller_imports, name, want_class=False):
+        """Scope a bare callee/base name to real targets instead of every
+        same-named symbol in the repo (the old behaviour, which manufactured
+        phantom call/inherit edges). Order: unambiguous repo-wide -> same file
+        -> a candidate whose module the caller imports. Anything still ambiguous
+        is left UNRESOLVED, because a wrong edge is worse than a missing one -
+        callers/callees, Impact and dead-code are all built on these."""
+        cands = name_index.get(name, [])
+        if want_class:
+            cands = [c for c in cands if (g.get(c) or {}).get("data", {}).get("kind") == "class"]
+        if not cands:
+            return []
+        if len(cands) == 1:
+            return cands
+        same = list(file_name_index.get((caller_file, name), []))
+        if want_class:
+            same = [c for c in same if (g.get(c) or {}).get("data", {}).get("kind") == "class"]
+        if same:
+            return same                          # local definition wins
+        if caller_imports:
+            imp = set(caller_imports)
+            imp |= {i.split(".")[-1] for i in caller_imports}
+            hit = [c for c in cands if file_modules.get(c, set()) & imp]
+            if len(hit) == 1:
+                return hit                       # exactly one imported match
+        return []                                # ambiguous -> unresolved
 
     for pf in parsed_files:
+        imports = pf.imports
         for sym in pf.symbols:
             if sym.parent:
                 parent_id = f"{pf.file}::{sym.parent}"
                 if parent_id in g.nodes:
                     g.add_edge(sym.id, parent_id, "method_of")
             for callee in sym.calls:
-                for target in name_index.get(callee, []):
+                for target in resolve(pf.file, imports, callee):
                     if target != sym.id:
                         g.add_edge(sym.id, target, "calls")
             for base in sym.bases:
-                for target in name_index.get(base, []):
-                    tn = g.get(target)
-                    if target != sym.id and tn and tn["data"].get("kind") == "class":
+                for target in resolve(pf.file, imports, base, want_class=True):
+                    if target != sym.id:
                         g.add_edge(sym.id, target, "inherits")
 
     for pf in parsed_files:
