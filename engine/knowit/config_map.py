@@ -5,10 +5,11 @@ from __future__ import annotations
 import os
 import re
 
-_KEY = re.compile(r"(?m)^([A-Za-z_][\w-]*)\s*[:=]")
+_KEY = re.compile(r"(?m)^[ \t]*([A-Za-z_][\w-]*)\s*[:=]")
 _SECTION = re.compile(r"(?m)^\[([^\]]+)\]")
 _ARG = re.compile(r"""add_argument\(\s*["'](--?[\w-]+)["']""")
 _UPPER = re.compile(r"(?m)^([A-Z][A-Z0-9_]{2,})\s*=")
+_JSON_KEY = re.compile(r'"([A-Za-z_][\w-]*)"\s*:')
 
 
 def config_surface(idx):
@@ -24,6 +25,10 @@ def config_surface(idx):
             items = sorted(set(_KEY.findall(txt)) | set(_SECTION.findall(txt)))[:40]
             if items:
                 out.append({"source": p.file, "kind": ext.strip("."), "items": items})
+        elif ext == ".json":
+            keys = sorted(set(_JSON_KEY.findall(txt)))[:40]
+            if keys:
+                out.append({"source": p.file, "kind": "json", "items": keys})
         if p.language == "python":
             args = sorted(set(_ARG.findall(txt)))
             if args:
