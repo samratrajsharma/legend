@@ -123,7 +123,7 @@ function truncateToWidth(s: string, maxW: number, charW: number): string {
 }
 
 function AreaMindmap({ data, onAreaClick }: { data: CodemapData; onAreaClick: (id: string) => void }) {
-  const { areas, E, BANDNAME, COLORS } = data;
+  const { areas, E, BANDNAME } = data;
   const [hoverId, setHoverId] = useState<string | null>(null);
   const W = 1600;
   const NB = BANDNAME.length;
@@ -274,7 +274,7 @@ function AreaMindmap({ data, onAreaClick }: { data: CodemapData; onAreaClick: (i
       <div className="diag__legend">
         {BANDNAME.map((b, i) => (
           <span key={i} className="diag__legend-item">
-            <span className="diag__legend-dot" style={{ background: COLORS[i] }} />
+            <span className="diag__legend-dot" />
             {b}
           </span>
         ))}
@@ -315,10 +315,10 @@ function AreaMindmap({ data, onAreaClick }: { data: CodemapData; onAreaClick: (i
       >
         <defs>
           <marker id="diag-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
-            <path d="M0,0 L10,5 L0,10 z" fill="#1DB954" />
+            <path d="M0,0 L10,5 L0,10 z" fill="#3a3a3a" />
           </marker>
           <marker id="diag-arrow-hi" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
-            <path d="M0,0 L10,5 L0,10 z" fill="#4ADE80" />
+            <path d="M0,0 L10,5 L0,10 z" fill="#1ED760" />
           </marker>
         </defs>
 
@@ -331,7 +331,7 @@ function AreaMindmap({ data, onAreaClick }: { data: CodemapData; onAreaClick: (i
                 key={i}
                 d={edgePath(s, t)}
                 fill="none"
-                stroke={hit ? '#4ADE80' : COLORS[byId[s].band]}
+                stroke={hit ? '#1ED760' : '#333333'}
                 strokeOpacity={hit ? 0.95 : (hoverId ? 0.03 : 0.18)}
                 strokeWidth={hit ? 2.4 : 1.2}
                 markerEnd={hit ? 'url(#diag-arrow-hi)' : 'url(#diag-arrow)'}
@@ -354,13 +354,14 @@ function AreaMindmap({ data, onAreaClick }: { data: CodemapData; onAreaClick: (i
               <rect
                 x={a.cx - a.w / 2} y={a.cy - a.h / 2}
                 width={a.w} height={a.h} rx={9}
-                fill={COLORS[a.band]}
-                stroke="#1AA34A" strokeWidth={1.5}
+                fill={hoverId === a.id ? '#1f1f1f' : '#181818'}
+                stroke={hoverId === a.id ? '#1ED760' : '#2c2c2c'}
+                strokeWidth={hoverId === a.id ? 2 : 1.25}
               />
-              <text x={a.cx} y={a.cy - 2} textAnchor="middle" fontSize={12.5} fontWeight={600} fill="#1AA34A">
+              <text x={a.cx} y={a.cy - 2} textAnchor="middle" fontSize={12.5} fontWeight={600} fill="#ffffff">
                 {a.nameDisplay}
               </text>
-              <text x={a.cx} y={a.cy + 13} textAnchor="middle" fontSize={10} fill="#1AA34A" opacity={0.78}>
+              <text x={a.cx} y={a.cy + 13} textAnchor="middle" fontSize={10} fill="#a7a7a7" opacity={0.9}>
                 {a.subDisplay}
               </text>
             </g>
@@ -393,7 +394,7 @@ function AreaDrill({
       <div className="diag__sheet" onClick={e => e.stopPropagation()}>
         <header className="diag__sheet-head">
           <div>
-            <span className="diag__bartag" style={{ background: data.COLORS[area.band] }}>
+            <span className="diag__bartag">
               {data.BANDNAME[area.band]}
             </span>
             <h2 className="diag__sheet-title">{area.name}</h2>
@@ -535,7 +536,7 @@ function FileDeepDive({
       <div className="diag__fwin" onClick={e => e.stopPropagation()}>
         <header className="diag__fwin-head">
           {area && (
-            <span className="diag__bartag" style={{ background: data.COLORS[area.band] }}>
+            <span className="diag__bartag">
               {F.area}
             </span>
           )}

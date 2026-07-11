@@ -10,12 +10,13 @@
 }
 .infotip__bubble {
   position: absolute; bottom: calc(100% + 8px); left: 50%; transform: translateX(-50%);
-  width: max-content; max-width: 260px; padding: 9px 12px; border-radius: 9px;
-  background: var(--dash-text); color: #fff;
+  width: max-content; max-width: 280px; padding: 9px 12px; border-radius: 9px;
+  background: #0d0d0d; color: var(--dash-text);
+  border: 1px solid var(--dash-border);
   font-size: 11.5px; font-weight: 400; line-height: 1.45; letter-spacing: 0; text-transform: none;
   text-align: left; white-space: normal;
-  box-shadow: 0 6px 20px rgba(0,0,0,0.18);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.55);
   opacity: 0; visibility: hidden; transition: opacity 0.15s; z-index: 60; pointer-events: none;
 }
-.infotip__bubble strong { display: block; margin-bottom: 3px; color: #fff; }
+.infotip__bubble strong { display: block; margin-bottom: 3px; color: var(--kyc-accent); }
 .infotip:hover .infotip__bubble, .infotip:focus .infotip__bubble { opacity: 1; visibility: visible; }

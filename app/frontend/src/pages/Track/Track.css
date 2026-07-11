@@ -36,3 +36,40 @@
 .track__none { font-size: 13px; color: var(--dash-text-muted); }
 .track__raw { margin-top: 12px; }
 .track__raw summary { cursor: pointer; font-size: 12.5px; color: var(--dash-text-secondary); padding: 4px 0; }
+
+/* ── Selected range + landing state ─────────────────────────────────────── */
+.track__range {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 10px;
+  margin-top: 14px; padding-top: 14px;
+  border-top: 1px solid var(--dash-border);
+  font-size: 12.5px; color: var(--dash-text-secondary);
+}
+.track__range code {
+  background: var(--dash-surface-hover); border: 1px solid var(--dash-border);
+  border-radius: 5px; padding: 3px 8px; font-size: 12px; color: var(--dash-text);
+  max-width: 340px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.track__range-arrow { color: var(--kyc-accent); font-weight: 700; }
+.track__range-btn { margin-left: auto; }
+
+.track__lead {
+  font-size: 13px; color: var(--dash-text-secondary); line-height: 1.65;
+  margin: 0 0 14px; max-width: 78ch;
+}
+.track__what { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
+.track__what > div {
+  padding: 12px 14px; border-radius: 8px;
+  background: var(--dash-surface-hover); border: 1px solid var(--dash-border);
+}
+.track__what strong { display: block; font-size: 12.5px; color: var(--dash-text); margin-bottom: 4px; }
+.track__what span { font-size: 12px; color: var(--dash-text-muted); line-height: 1.55; }
+.track__note { font-size: 12px; color: var(--dash-text-muted); margin: 14px 0 0; }
+
+.track__why {
+  font-size: 12.5px; color: var(--dash-text-muted); margin: 8px 0 0; line-height: 1.6;
+}
+.track__why strong { color: var(--dash-text-secondary); }
+.track__why code {
+  background: var(--dash-surface-hover); border: 1px solid var(--dash-border);
+  border-radius: 5px; padding: 2px 6px; font-size: 12px; color: var(--dash-text-secondary);
+}

@@ -105,7 +105,14 @@ export default function Timeline() {
           </button>
         </div>
       </div>
-      {msg && <div className="toast toast--ok" style={{ marginBottom: 16 }}>{msg}</div>}
+      {msg && (
+        <div
+          className={`toast ${/fail|error|could not|denied|timed out/i.test(msg) ? 'toast--err' : 'toast--ok'}`}
+          style={{ marginBottom: 16 }}
+        >
+          {msg}
+        </div>
+      )}
 
       {latest && (
         <div className="stats">

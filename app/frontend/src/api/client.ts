@@ -146,7 +146,7 @@ export const kycApi = {
   ask: (rid: string, question: string) => api.post<AskResponse>(`/repos/${rid}/ask`, { question }),
 
   // Track
-  trackCommits: (rid: string, n = 30) => api.get<{ is_git: boolean; commits: { sha: string; short: string; author: string; date: string; subject: string }[] }>(`/repos/${rid}/track/commits`, { params: { n } }),
+  trackCommits: (rid: string, n = 30) => api.get<{ is_git: boolean; commits: { sha: string; short: string; author: string; date: string; subject: string }[]; reason?: string; path?: string }>(`/repos/${rid}/track/commits`, { params: { n } }),
   trackDiff:    (rid: string, base_commit: string, head_commit: string) =>
     api.post<{ diff: any; changelog: string; arch_delta_dot: string }>(`/repos/${rid}/track/diff`, { base_commit, head_commit }),
 

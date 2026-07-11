@@ -3,10 +3,24 @@ import { useParams, Link } from 'react-router-dom';
 import { AskSource } from '../../api/client';
 import './Ask.css';
 
+// A blank box is a hard start. Show one worked example (not editable, just a shape
+// to copy) plus starters that work on any codebase.
+const EXAMPLE = 'How does the inference flow work?';
+
+const STARTERS = [
+  'What does this repo do, end to end?',
+  'Where does execution start, and what happens first?',
+  'What are the main modules and how do they talk to each other?',
+  'Where is configuration read from?',
+  'How is data stored or persisted?',
+  'What is the riskiest part of this codebase?',
+];
+
 // Streams the answer token-by-token from POST /api/v1/repos/:id/ask/stream (SSE).
 export default function Ask() {
   const { repoId } = useParams<{ repoId: string }>();
-  const [q, setQ] = useState('How does the inference flow work?');
+  const [q, setQ] = useState('');
+  const [asked, setAsked] = useState(false);
   const [streaming, setStreaming] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [answer, setAnswer] = useState('');
@@ -14,14 +28,16 @@ export default function Ask() {
   const [needs, setNeeds] = useState<string | null>(null);
   const [done, setDone] = useState(false);
 
-  const ask = async () => {
-    if (!repoId || !q.trim() || streaming) return;
+  const ask = async (override?: string) => {
+    const question = (override ?? q).trim();
+    if (!repoId || !question || streaming) return;
+    setQ(question); setAsked(true);
     setStreaming(true); setError(null); setAnswer(''); setSources([]); setNeeds(null); setDone(false);
     try {
       const resp = await fetch(`/api/v1/repos/${repoId}/ask/stream`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ question: q.trim() }),
+        body: JSON.stringify({ question }),
       });
       if (!resp.ok || !resp.body) {
         let detail = 'Ask failed';
@@ -78,16 +94,36 @@ export default function Ask() {
             value={q}
             onChange={e => setQ(e.target.value)}
             onKeyDown={e => { if (e.key === 'Enter' && !streaming) ask(); }}
-            placeholder="What does this repo do? How does X work? Where is Y defined?"
+            placeholder="Ask anything about this codebase..."
             disabled={streaming}
             autoFocus
           />
-          <button className="btn btn--primary" onClick={ask} disabled={streaming || !q.trim()}>
+          <button className="btn btn--primary" onClick={() => ask()} disabled={streaming || !q.trim()}>
             {streaming ? 'Asking…' : 'Ask'}
           </button>
         </div>
         {error && <div className="toast toast--err" style={{ marginTop: 12 }}>{error}</div>}
       </div>
+
+      {!asked && (
+        <div className="card">
+          <div className="card-header"><h3>Not sure what to ask?</h3></div>
+
+          <div className="ask__example" aria-hidden="true">
+            <span className="ask__example-tag">example</span>
+            <span className="ask__example-q">{EXAMPLE}</span>
+          </div>
+
+          <p className="ask__starters-lead">Or start with one of these - they work on any codebase:</p>
+          <div className="ask__starters">
+            {STARTERS.map(s => (
+              <button key={s} className="ask__starter" onClick={() => ask(s)} disabled={streaming}>
+                {s}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {streaming && answer.length === 0 && !needs && (
         <div className="dash-loading">Retrieving and synthesizing…</div>

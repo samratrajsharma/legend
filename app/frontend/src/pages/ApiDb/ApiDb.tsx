@@ -1,6 +1,9 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { kycApi, ApiRoute, DbModel } from '../../api/client';
+import './ApiDb.css';
+
+const PAGE = 10;   // long route tables are unreadable; show a window and let the user open it
 
 export default function ApiDb() {
   const { repoId } = useParams<{ repoId: string }>();
@@ -8,6 +11,8 @@ export default function ApiDb() {
   const [models, setModels] = useState<DbModel[] | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [allRoutes, setAllRoutes] = useState(false);
+  const [allModels, setAllModels] = useState(false);
 
   useEffect(() => {
     if (!repoId) return;
@@ -29,6 +34,8 @@ export default function ApiDb() {
 
   const nRoutes = routes?.length || 0;
   const nModels = models?.length || 0;
+  const shownRoutes = allRoutes ? routes! : (routes || []).slice(0, PAGE);
+  const shownModels = allModels ? models! : (models || []).slice(0, PAGE);
 
   return (
     <div>
@@ -71,7 +78,7 @@ export default function ApiDb() {
             <table className="table">
               <thead><tr><th>Method</th><th>Path</th><th>File</th></tr></thead>
               <tbody>
-                {routes!.map((r, i) => (
+                {shownRoutes.map((r, i) => (
                   <tr key={i}>
                     <td>
                       <span style={{
@@ -86,6 +93,14 @@ export default function ApiDb() {
                 ))}
               </tbody>
             </table>
+            {nRoutes > PAGE && (
+              <div className="apidb__more">
+                <button className="btn btn--secondary btn--sm" onClick={() => setAllRoutes(v => !v)}>
+                  {allRoutes ? `Show first ${PAGE}` : `Show all ${nRoutes} routes`}
+                </button>
+                {!allRoutes && <span className="apidb__more-hint">showing {PAGE} of {nRoutes}</span>}
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -99,7 +114,7 @@ export default function ApiDb() {
             <table className="table">
               <thead><tr><th>Model</th><th>Table</th><th>File</th></tr></thead>
               <tbody>
-                {models!.map((m, i) => (
+                {shownModels.map((m, i) => (
                   <tr key={i}>
                     <td><code style={{ fontFamily: 'ui-monospace, monospace', fontSize: 12, fontWeight: 700 }}>{m.model}</code></td>
                     <td><code style={{ fontFamily: 'ui-monospace, monospace', fontSize: 12 }}>{m.table || '—'}</code></td>
@@ -108,6 +123,14 @@ export default function ApiDb() {
                 ))}
               </tbody>
             </table>
+            {nModels > PAGE && (
+              <div className="apidb__more">
+                <button className="btn btn--secondary btn--sm" onClick={() => setAllModels(v => !v)}>
+                  {allModels ? `Show first ${PAGE}` : `Show all ${nModels} models`}
+                </button>
+                {!allModels && <span className="apidb__more-hint">showing {PAGE} of {nModels}</span>}
+              </div>
+            )}
           </div>
         )}
       </div>

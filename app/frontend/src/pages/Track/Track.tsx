@@ -7,6 +7,9 @@ export default function Track() {
   const { repoId } = useParams<{ repoId: string }>();
   const [isGit, setIsGit] = useState<boolean | null>(null);
   const [commits, setCommits] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [reason, setReason] = useState('');
+  const [repoPath, setRepoPath] = useState('');
   const [base, setBase] = useState(''); const [head, setHead] = useState('');
   const [diff, setDiff] = useState<any>(null);
   const [running, setRunning] = useState(false);
@@ -14,12 +17,19 @@ export default function Track() {
 
   useEffect(() => {
     if (!repoId) return;
-    kycApi.trackCommits(repoId).then(r => {
-      setIsGit(r.data.is_git); setCommits(r.data.commits);
-      if (r.data.commits.length >= 2) {
-        setHead(r.data.commits[0].sha); setBase(r.data.commits[1].sha);
-      }
-    });
+    setLoading(true); setError(null);
+    kycApi.trackCommits(repoId)
+      .then(r => {
+        setIsGit(r.data.is_git);
+        setCommits(r.data.commits || []);
+        setReason(r.data.reason || '');
+        setRepoPath(r.data.path || '');
+        if ((r.data.commits || []).length >= 2) {
+          setHead(r.data.commits[0].sha); setBase(r.data.commits[1].sha);
+        }
+      })
+      .catch(e => setError(e?.response?.data?.detail || 'Could not read this repository\'s commit history.'))
+      .finally(() => setLoading(false));
   }, [repoId]);
 
   const runDiff = async () => {
@@ -33,17 +43,45 @@ export default function Track() {
     } finally { setRunning(false); }
   };
 
+  if (loading) return <div className="dash-loading">Reading commit history...</div>;
+
   if (isGit === false) {
     return (
       <div>
         <div className="page-header"><h1>Track</h1></div>
         <div className="card empty-state">
-          <h3>Not a git repository</h3>
-          <p>Track diffs across commits only work on git repos.</p>
+          <h3>No git history here</h3>
+          <p>Track compares the codebase at two commits, so it needs git history.</p>
+          {reason && <p className="track__why"><strong>Reason:</strong> {reason}</p>}
+          {repoPath && <p className="track__why"><strong>Looked in:</strong> <code>{repoPath}</code></p>}
         </div>
       </div>
     );
   }
+
+  // isGit === null means the history call failed outright - say so instead of
+  // rendering two empty dropdowns.
+  if (isGit === null || commits.length === 0) {
+    return (
+      <div>
+        <div className="page-header"><h1>Track</h1></div>
+        <div className="card empty-state">
+          <h3>{error ? 'Could not load commits' : 'No commits found'}</h3>
+          <p>{error || reason || 'This repository has git metadata but no commit history to compare.'}</p>
+          {repoPath && <p className="track__why"><strong>Looked in:</strong> <code>{repoPath}</code></p>}
+        </div>
+      </div>
+    );
+  }
+
+  const shaLabel = (sha: string) => {
+    const c = commits.find(x => x.sha === sha);
+    return c ? `${c.short} ${c.subject}` : '-';
+  };
+  const compareLatest = () => {
+    if (commits.length < 2) return;
+    setHead(commits[0].sha); setBase(commits[1].sha);
+  };
 
   return (
     <div>
@@ -73,7 +111,38 @@ export default function Track() {
             {running ? 'Diffing…' : 'Diff'}
           </button>
         </div>
+
+        {base && head && (
+          <div className="track__range">
+            <code>{shaLabel(base)}</code>
+            <span className="track__range-arrow">→</span>
+            <code>{shaLabel(head)}</code>
+            {commits.length >= 2 && (
+              <button className="btn btn--secondary btn--sm track__range-btn" onClick={compareLatest}>
+                Use latest commit
+              </button>
+            )}
+          </div>
+        )}
       </div>
+
+      {!diff && !running && !error && (
+        <div className="card">
+          <div className="card-header"><h3>What a structural diff gives you</h3></div>
+          <p className="track__lead">
+            This is not a text diff. KnowIT re-indexes the codebase at both commits and compares the
+            structures, so you get what actually changed in the architecture rather than which lines moved.
+          </p>
+          <div className="track__what">
+            <div><strong>Files &amp; symbols</strong><span>Functions and classes that appeared, disappeared, or were rewritten.</span></div>
+            <div><strong>Complexity</strong><span>Which functions got harder to reason about, and by how much.</span></div>
+            <div><strong>Architecture delta</strong><span>Import edges added or removed - new coupling between modules.</span></div>
+          </div>
+          <p className="track__note">
+            Both commits get fully indexed, so the first diff on a large repo can take a minute.
+          </p>
+        </div>
+      )}
 
       {error && <div className="card"><div className="toast toast--err">{error}</div></div>}
 

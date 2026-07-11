@@ -127,10 +127,46 @@ class EvalRequest(BaseModel):
 
 
 # ── Helpers ──────────────────────────────────────────────────────
+def _registry_source(rid: str) -> str:
+    """Recover a repo's source (url/path) from repos.json, the on-disk registry."""
+    try:
+        data_dir = Path(os.environ.get("KNOWIT_DATA_DIR", str(HERE / ".cache")))
+        rp = data_dir / "repos.json"
+        if rp.exists():
+            for e in json.loads(rp.read_text(encoding="utf-8")):
+                src = (e.get("source") or "").strip()
+                if src and _repo_id(src) == rid:
+                    return src
+    except Exception:
+        pass
+    return ""
+
+
+def _rehydrate(rid: str) -> bool:
+    """_REPOS lives in memory, so a backend restart silently unloads every repo -
+    while Home keeps listing them, because Home reads the disk registry. Every tab
+    behind _require_idx then 404s on a repo the user can plainly see. Rebuild it in
+    the background instead (the parse/graph/chunks are cached, so this is quick)."""
+    src = _registry_source(rid)
+    if not src:
+        return False
+    with _REPOS_LOCK:
+        if rid in _REPOS:
+            return True
+        _REPOS[rid] = {"source": src, "status": "indexing", "error": None, "pct": 0,
+                       "message": "Reloading after restart...", "name": _name_from_source(src)}
+    threading.Thread(target=_index_worker, args=(rid, src, _engine_config()), daemon=True).start()
+    return True
+
+
 def _require_idx(rid: str):
     with _REPOS_LOCK:
         slot = _REPOS.get(rid)
-    if not slot: raise HTTPException(404, "Unknown repo_id")
+    if not slot:
+        if _rehydrate(rid):
+            raise HTTPException(409, "This repo was unloaded when the backend restarted. "
+                                     "It is being reloaded now - retry in a moment.")
+        raise HTTPException(404, "Unknown repo_id")
     if slot.get("status") != "ready":
         raise HTTPException(409, f"Repo not ready (status={slot.get('status')})")
     idx = slot.get("idx")
@@ -911,9 +947,14 @@ def ask_stream(rid: str, req: AskRequest):
 @app.get("/api/v1/repos/{rid}/track/commits")
 def track_commits(rid: str, n: int = 30) -> dict:
     idx = _require_idx(rid)
-    if not track.is_git(idx.meta.path):
-        return {"is_git": False, "commits": []}
-    return {"is_git": True, "commits": track.git_log(idx.meta.path, n=n)}
+    path = idx.meta.path
+    ok, reason = track.git_probe(path)
+    # `reason` is surfaced verbatim: "not a git repository" was previously shown for
+    # git-missing / dubious-ownership / vanished-path alike, which is a lie the user
+    # cannot debug.
+    if not ok:
+        return {"is_git": False, "commits": [], "reason": reason, "path": path}
+    return {"is_git": True, "commits": track.git_log(path, n=n), "reason": reason, "path": path}
 
 @app.post("/api/v1/repos/{rid}/track/diff")
 def track_diff(rid: str, req: SnapshotDiffRequest) -> dict:

@@ -1,0 +1,7 @@
+.apidb__more {
+  display: flex; align-items: center; gap: 12px;
+  padding: 12px 2px 2px;
+  border-top: 1px solid var(--dash-border);
+  margin-top: 4px;
+}
+.apidb__more-hint { font-size: 12px; color: var(--dash-text-muted); }

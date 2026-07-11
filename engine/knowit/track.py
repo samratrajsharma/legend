@@ -13,15 +13,44 @@ CODE_LANGS = ("python", "javascript", "typescript")
 
 
 def _git(args, cwd, timeout=120):
-    return subprocess.run(["git"] + args, cwd=cwd, capture_output=True, text=True,
-                          timeout=timeout)
+    # safe.directory: git refuses to touch a repo it thinks is owned by another
+    #   user and exits non-zero ("detected dubious ownership") - common on Windows
+    #   for folders written by a service/other shell. Our clones are ours; trust them.
+    # core.longpaths: deep paths blow past Windows' 260-char limit.
+    env = dict(os.environ)
+    env["GIT_TERMINAL_PROMPT"] = "0"        # never block on a credential prompt
+    return subprocess.run(
+        ["git", "-c", "safe.directory=*", "-c", "core.longpaths=true"] + args,
+        cwd=cwd, capture_output=True, text=True, timeout=timeout, env=env)
+
+
+def git_probe(path):
+    """(is_git, reason). Never answers 'not a git repo' when it actually means
+    'git blew up and I threw the reason away' - that is indistinguishable to the
+    user and sends them chasing the wrong problem."""
+    if not path or not os.path.isdir(path):
+        return False, "The working copy is not on disk any more: %s" % (path or "(empty path)")
+    dotgit = os.path.join(path, ".git")
+    has_dotgit = os.path.isdir(dotgit) or os.path.isfile(dotgit)   # worktrees use a file
+    try:
+        r = _git(["rev-parse", "--is-inside-work-tree"], path, timeout=30)
+    except FileNotFoundError:
+        return has_dotgit, "git is not installed, or not on PATH for the backend process."
+    except subprocess.TimeoutExpired:
+        return has_dotgit, "git did not respond within 30s."
+    except Exception as e:
+        return has_dotgit, "%s: %s" % (type(e).__name__, e)
+    if r.returncode == 0 and r.stdout.strip() == "true":
+        return True, ""
+    err = (r.stderr or r.stdout or "").strip()
+    if has_dotgit:
+        # there IS a .git here - so this is a git failure, not a missing repo
+        return True, err or "git rev-parse failed with no output."
+    return False, err or "No .git directory found in %s" % path
 
 
 def is_git(path):
-    try:
-        return _git(["rev-parse", "--is-inside-work-tree"], path).returncode == 0
-    except Exception:
-        return False
+    return git_probe(path)[0]
 
 
 def git_log(path, n=30):

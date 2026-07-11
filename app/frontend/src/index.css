@@ -190,5 +190,5 @@ input, select, textarea { font-family: inherit; }
   margin-bottom: 16px;
   border: 1px solid;
 }
-.toast--ok { background: rgba(5, 150, 105, 0.1); color: #047857; border-color: rgba(5, 150, 105, 0.2); }
-.toast--err { background: rgba(220, 38, 38, 0.1); color: #b91c1c; border-color: rgba(220, 38, 38, 0.2); }
+.toast--ok { background: rgba(30, 215, 96, 0.10); color: #1ED760; border-color: rgba(30, 215, 96, 0.30); }
+.toast--err { background: rgba(239, 68, 68, 0.12); color: #fca5a5; border-color: rgba(239, 68, 68, 0.38); }

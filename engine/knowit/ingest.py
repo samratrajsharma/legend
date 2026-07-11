@@ -5,6 +5,7 @@ import re
 import shutil
 import stat
 import subprocess
+import sys
 import time
 from .models import RepoMeta
 
@@ -103,9 +104,24 @@ def _git_env():
 
 
 def _run_git(args, cwd=None, timeout=60):
-    # core.longpaths: deep node_modules paths blow past Windows' 260-char limit
-    return subprocess.run(["git", "-c", "core.longpaths=true"] + args, cwd=cwd,
-                          capture_output=True, text=True, timeout=timeout, env=_git_env())
+    # safe.directory: git exits non-zero with "detected dubious ownership" when it
+    #   thinks a repo belongs to another user. These are OUR clones in OUR cache, so
+    #   the guard buys nothing and silently breaks every git call we make.
+    # core.longpaths: deep node_modules paths blow past Windows' 260-char limit.
+    return subprocess.run(
+        ["git", "-c", "safe.directory=*", "-c", "core.longpaths=true"] + args,
+        cwd=cwd, capture_output=True, text=True, timeout=timeout, env=_git_env())
+
+
+def _capture(args, cwd, timeout=20):
+    """(returncode, stdout, stderr) - keeps the error instead of eating it."""
+    try:
+        r = _run_git(args, cwd=cwd, timeout=timeout)
+        return r.returncode, (r.stdout or "").strip(), (r.stderr or "").strip()
+    except FileNotFoundError:
+        return 127, "", "git is not installed or not on PATH."
+    except Exception as e:
+        return 1, "", "%s: %s" % (type(e).__name__, e)
 
 
 def _git(args, cwd):
@@ -125,15 +141,29 @@ def _canon(u):
     return _AUTH_RE.sub(r"\1", u).rstrip("/")
 
 
+def _probe(dest, url):
+    """Classify an existing folder: ('ok' | 'mismatch' | 'broken' | 'error', detail).
+
+    The distinction matters. 'broken' means there is no repo here and we may safely
+    delete it. 'error' means a real repo IS here but the git CLI failed - deleting
+    and re-cloning in that case destroys a perfectly good clone and then fails the
+    same way on the fresh one. So 'error' reuses what is on disk."""
+    dotgit = os.path.join(dest, ".git")
+    if not (os.path.isdir(dotgit) or os.path.isfile(dotgit)):
+        return "broken", "no .git directory"
+    rc, head, err = _capture(["rev-parse", "HEAD"], dest)
+    if rc != 0 or not head:
+        return "error", err or "git rev-parse HEAD failed (rc=%d)" % rc
+    rc, origin, err = _capture(["config", "--get", "remote.origin.url"], dest)
+    if rc != 0 or not origin:
+        return "error", err or "no remote.origin.url set"
+    if _canon(origin) != _canon(url):
+        return "mismatch", "this folder holds %s" % origin
+    return "ok", ""
+
+
 def _healthy_clone_of(dest, url):
-    """A folder is only reusable if it is a real git repo, has objects, and points
-    at THIS url. Anything else (half-clone, different repo, corrupt) is garbage."""
-    if not os.path.isdir(os.path.join(dest, ".git")):
-        return False
-    if not _git(["rev-parse", "HEAD"], dest):
-        return False
-    origin = _git(["config", "--get", "remote.origin.url"], dest)
-    return bool(origin) and _canon(origin) == _canon(url)
+    return _probe(dest, url)[0] == "ok"
 
 
 def _refresh(dest):
@@ -167,7 +197,7 @@ def _hint(err):
     if any(k in low for k in ("could not resolve host", "unable to access", "timed out",
                               "connection", "network", "ssl", "tls", "eof")):
         return "Network error reaching the remote — check your connection/VPN, then retry."
-    return (err or "unknown git error")[:400]
+    return (err or "git failed without printing a reason")[:400]
 
 
 def _dest_for(repos, url, name):
@@ -180,12 +210,13 @@ def _dest_for(repos, url, name):
     primary = os.path.join(repos, name)
     if not os.path.isdir(primary):
         return primary
-    if _healthy_clone_of(primary, url):
-        return primary
-    if os.path.isdir(os.path.join(primary, ".git")):
+    state, _detail = _probe(primary, url)
+    if state in ("ok", "error"):
+        return primary                      # ours (or ours-but-git-is-sulking): keep it
+    if state == "mismatch":                 # a DIFFERENT repo squats this name
         key = hashlib.sha1(_canon(url).encode("utf-8")).hexdigest()[:8]
         return os.path.join(repos, "%s-%s" % (name, key))
-    _rm(primary)          # not a git repo at all: leftover half-clone, reclaim the name
+    _rm(primary)                            # 'broken': leftover half-clone, reclaim it
     return primary
 
 
@@ -198,10 +229,18 @@ def clone_or_local(source, data_dir):
         os.makedirs(repos, exist_ok=True)
         dest = _dest_for(repos, url, name_from_url(url))
 
-        if os.path.isdir(dest) and _healthy_clone_of(dest, url):
-            _refresh(dest)                       # cached, but bring it up to date
-            return os.path.abspath(dest)
-        _rm(dest)                                # anything else on that path is junk
+        if os.path.isdir(dest):
+            state, detail = _probe(dest, url)
+            if state == "ok":
+                _refresh(dest)                   # cached, but bring it up to date
+                return os.path.abspath(dest)
+            if state == "error":
+                # A real clone is sitting here and git is complaining about it. Use it.
+                # Re-cloning would delete working code to chase an error that would
+                # simply reappear on the new copy.
+                sys.stderr.write("[knowit] reusing %s despite a git error: %s\n" % (dest, detail))
+                return os.path.abspath(dest)
+            _rm(dest)                            # 'broken' / 'mismatch': safe to clear
 
         # progressively cheaper strategies: a shallow single-branch clone is what we
         # want, but some remotes/proxies choke on it — fall back rather than fail.
@@ -222,9 +261,14 @@ def clone_or_local(source, data_dir):
                         "clone it locally and connect the folder path instead.")
                 except FileNotFoundError:
                     raise RuntimeError("git is not installed or not on PATH.")
-                if r.returncode == 0 and _healthy_clone_of(dest, url):
-                    return os.path.abspath(dest)
-                last = (r.stderr or r.stdout or "").strip()
+                if r.returncode == 0:
+                    state, detail = _probe(dest, url)
+                    if state in ("ok", "error"):
+                        return os.path.abspath(dest)
+                    last = "clone reported success but the result is unusable: %s" % detail
+                else:
+                    last = (r.stderr or r.stdout or "").strip() or \
+                           "git exited with code %d and printed nothing" % r.returncode
                 _rm(dest)                        # never leave a partial clone behind
                 if any(k in last.lower() for k in _FATAL):
                     raise RuntimeError("git clone failed: " + _hint(last))
