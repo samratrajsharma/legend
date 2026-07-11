@@ -5,7 +5,6 @@
   color: var(--dash-text);
 }
 
-/* ── Sidebar — light shell, matched to the Orchestraty dashboard ── */
 .sidebar {
   width: var(--dash-sidebar-width);
   background: var(--color-surface, #181818);
@@ -26,25 +25,28 @@
 .sidebar__brand-name { font-size: 16px; font-weight: 700; letter-spacing: -0.02em; color: var(--dash-text); }
 .sidebar__brand-sub  { font-size: 10px; font-weight: 700; color: var(--kyc-accent); letter-spacing: 0.1em; text-transform: uppercase; }
 
-.sidebar__section { padding: 14px 10px; }
+.sidebar__section { padding: 12px 10px; }
 .sidebar__section + .sidebar__section { border-top: 1px solid var(--dash-border); }
+.sidebar__section--nav { padding-bottom: 10px; }
 .sidebar__section-label {
   font-size: 10px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
   color: var(--dash-text-muted); padding: 0 12px 8px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
+.sidebar__empty { font-size: 12px; color: var(--dash-text-muted); padding: 2px 12px 4px; }
 
 .sidebar__link {
-  display: flex; align-items: center; gap: 12px; padding: 10px 12px;
+  display: flex; align-items: center; gap: 10px; padding: 10px 12px;
   border-radius: 10px; color: var(--dash-text-secondary);
   font-size: 13.5px; font-weight: 500; text-decoration: none;
-  transition: all 0.15s ease; margin-bottom: 2px; position: relative;
+  transition: background 0.15s ease, color 0.15s ease; margin-bottom: 2px; position: relative;
 }
+.sidebar__link svg { flex: none; }
 .sidebar__link:hover { background: var(--dash-surface-hover); color: var(--dash-text); }
 .sidebar__link--active { background: var(--kyc-accent-dim); color: var(--kyc-accent); font-weight: 600; }
 .sidebar__link--active::before {
   content: ''; position: absolute; left: 0; top: 50%; transform: translateY(-50%);
-  width: 3px; height: 20px; border-radius: 0 4px 4px 0;
-  background: linear-gradient(180deg, var(--brand-violet) 0%, var(--brand-purple, #4ade80) 100%);
+  width: 3px; height: 20px; border-radius: 0 4px 4px 0; background: var(--kyc-accent);
 }
 
 .sidebar__repo {
@@ -57,42 +59,39 @@
   color: inherit; font-family: inherit; font-size: 12.5px; text-align: left;
 }
 .sidebar__repo-x {
-  flex: 0 0 auto; background: transparent; border: none; cursor: pointer;
-  color: var(--dash-text-muted); padding: 4px 8px; margin-right: 4px;
-  font-size: 15px; line-height: 1; border-radius: 8px; opacity: 0;
+  flex: 0 0 auto; display: flex; align-items: center; justify-content: center;
+  background: transparent; border: none; cursor: pointer;
+  color: var(--dash-text-muted); padding: 5px; margin-right: 5px;
+  border-radius: 7px; opacity: 0;
   transition: opacity 0.15s, color 0.15s, background 0.15s;
 }
-.sidebar__repo:hover .sidebar__repo-x { opacity: 0.6; }
-.sidebar__repo-x:hover { color: var(--dash-danger); opacity: 1; background: rgba(220,38,38,0.08); }
+.sidebar__repo:hover .sidebar__repo-x { opacity: 0.65; }
+.sidebar__repo-x:hover { color: var(--dash-danger); opacity: 1; background: rgba(239, 68, 68, 0.1); }
 .sidebar__repo:hover { background: var(--dash-surface-hover); color: var(--dash-text); }
 .sidebar__repo--active { background: var(--kyc-accent-dim); color: var(--kyc-accent); font-weight: 600; }
 .sidebar__repo-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; min-width: 0; }
 .sidebar__repo-status {
   font-size: 9px; font-weight: 700; padding: 2px 7px; border-radius: 100px;
-  letter-spacing: 0.06em; text-transform: uppercase;
+  letter-spacing: 0.06em; text-transform: uppercase; flex: none;
   background: var(--dash-surface-hover); color: var(--dash-text-muted);
 }
-.sidebar__repo-status--ready    { background: rgba(5, 150, 105, 0.1); color: var(--dash-success); }
-.sidebar__repo-status--indexing { background: rgba(217, 119, 6, 0.1); color: var(--dash-warning); }
-.sidebar__repo-status--failed   { background: rgba(220, 38, 38, 0.1); color: var(--dash-danger); }
+.sidebar__repo-status--ready    { background: var(--kyc-accent-dim); color: var(--kyc-accent); }
+.sidebar__repo-status--indexing { background: rgba(217, 119, 6, 0.16); color: #fbbf24; }
+.sidebar__repo-status--failed   { background: rgba(239, 68, 68, 0.16); color: #f87171; }
 
-.sidebar__foot { margin-top: auto; padding: 12px; border-top: 1px solid var(--dash-border); }
+.sidebar__foot { margin-top: auto; padding: 10px; border-top: 1px solid var(--dash-border); }
 .sidebar__llm {
   display: flex; align-items: center; gap: 8px; width: 100%;
-  padding: 8px 12px; border-radius: 10px; text-decoration: none;
-  color: var(--dash-text-secondary); transition: background 0.15s;
+  padding: 7px 12px; border-radius: 10px; color: var(--dash-text-muted);
 }
-.sidebar__llm:hover { background: var(--dash-surface-hover); }
-.sidebar__llm-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--dash-text-muted); flex: 0 0 auto; }
-.sidebar__llm-dot--on { background: var(--dash-success); box-shadow: 0 0 8px rgba(16, 185, 129, 0.5); }
-.sidebar__llm-text { font-size: 11.5px; color: var(--dash-text-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.sidebar__llm-gear { margin-left: auto; opacity: 0.6; font-size: 13px; }
+.sidebar__llm-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--dash-text-muted); flex: 0 0 auto; }
+.sidebar__llm-dot--on { background: var(--kyc-accent); box-shadow: 0 0 8px rgba(30, 215, 96, 0.55); }
+.sidebar__llm-text { font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-/* ── Main content ────────────────────────────────────────────── */
 .main {
   margin-left: var(--dash-sidebar-width);
   flex: 1;
-  min-width: 0;          /* allow shrink so wide children (tables, code, grids) scroll inside instead of clipping the page */
+  min-width: 0;
   padding: 32px 36px;
   min-height: 100vh;
 }
