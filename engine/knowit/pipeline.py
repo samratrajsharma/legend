@@ -67,15 +67,21 @@ class RepoIndex:
 
 # ---------------- cache + multi-repo registry ----------------
 def _signature(meta, files):
+    # Fingerprint = commit sha + the ACTUAL working-tree state. The working-tree
+    # fingerprint used to be computed only for non-git folders (commit=="working-tree");
+    # for a git repo the signature was the HEAD sha alone, so uncommitted edits did NOT
+    # bust the cache. That silently broke Timeline/Track on git repos: track/dirty saw
+    # the edit, but capture reused the stale HEAD-keyed parse and reported "no change"
+    # (QA finding G-05). Always hashing the tree makes any uncommitted edit invalidate
+    # the cache, which is the whole point of over-time tracking.
     h = hashlib.sha1()
     h.update((meta.commit or "").encode())
-    if meta.commit == "working-tree":
-        for rel, ab in sorted(files):
-            try:
-                st = os.stat(ab)
-                h.update(f"{rel}:{int(st.st_mtime)}:{st.st_size}".encode())
-            except OSError:
-                pass
+    for rel, ab in sorted(files):
+        try:
+            st = os.stat(ab)
+            h.update(f"{rel}:{int(st.st_mtime)}:{st.st_size}".encode())
+        except OSError:
+            pass
     return h.hexdigest()[:16]
 
 
