@@ -170,10 +170,13 @@ export default function Timeline() {
                   <div className="tl-detail-grid">
                     {!!e.files_added?.length && <TLBlock title={`Files added (${e.files_added.length})`} items={e.files_added} />}
                     {!!e.files_removed?.length && <TLBlock title={`Files removed (${e.files_removed.length})`} items={e.files_removed} />}
-                    {!!e.files_modified?.length && <TLBlock title={`Files modified (${e.files_modified.length})`} items={e.files_modified.map(f => `${f.file}  (LOC ${f.loc_was}→${f.loc}, cx ${f.cx_was}→${f.cx_total})`)} />}
+                    {!!e.files_modified?.length && <TLBlock title={`Files modified (${e.files_modified.length})`} items={e.files_modified.map(f => f.loc != null || f.cx_total != null ? `${f.file}  (LOC ${f.loc_was ?? '?'}\u2192${f.loc ?? '?'}, cx ${f.cx_was ?? '?'}\u2192${f.cx_total ?? '?'})` : f.file)} />}
                     {!!e.symbols_added?.length && <TLBlock title={`Symbols added (${e.symbols_added.length})`} items={e.symbols_added.map(s => `${s.symbol}  (${s.kind ?? '?'}, cx ${s.cx ?? 0}) — ${s.file}`)} />}
                     {!!e.symbols_changed?.length && <TLBlock title={`Symbols changed (${e.symbols_changed.length})`} items={e.symbols_changed.map(s => `${s.symbol}  (cx ${s.cx_was ?? 0}→${s.cx ?? 0}) — ${s.file}`)} />}
                     {!!e.symbols_removed?.length && <TLBlock title={`Symbols removed (${e.symbols_removed.length})`} items={e.symbols_removed.map(s => `${s.symbol} — ${s.file}`)} />}
+                    {!(e.files_added?.length || e.files_removed?.length || e.files_modified?.length || e.symbols_added?.length || e.symbols_changed?.length || e.symbols_removed?.length) && (
+                      <div className="tl-block"><div className="tl-block__title" style={{ color: 'var(--dash-text-muted)', fontWeight: 400 }}>No file-level changes recorded for this commit.</div></div>
+                    )}
                   </div>
                 </details>
                 </>

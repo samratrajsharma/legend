@@ -72,7 +72,7 @@ export type TimelineMetrics = { files: number; symbols: number; loc: number; avg
 export type TimelineEvent = {
   ts: string; kind: string; summary: string; sha?: string; author?: string; metrics?: TimelineMetrics;
   files_added?: string[]; files_removed?: string[];
-  files_modified?: { file: string; loc: number; loc_was: number; cx_total: number; cx_was: number }[];
+  files_modified?: { file: string; loc?: number; loc_was?: number; cx_total?: number; cx_was?: number }[];
   symbols_added?: { file: string; symbol: string; kind?: string; cx?: number }[];
   symbols_removed?: { file: string; symbol: string }[];
   symbols_changed?: { file: string; symbol: string; cx?: number; cx_was?: number }[];

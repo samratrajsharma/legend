@@ -1022,15 +1022,25 @@ def _git_history(path: str, n: int = 80):
     RS, FS = chr(30), chr(31)
     fmt = RS + "%H" + FS + "%aI" + FS + "%an" + FS + "%s"
     try:
-        res = subprocess.run(
-            ["git", "-C", path, "log", "-n", str(n), "--name-status", "--no-renames",
-             "--pretty=format:" + fmt],
-            capture_output=True, text=True, timeout=30)
+        # --diff-merges=separate: plain `git log --name-status` prints NO files for a merge,
+        # so the Timeline "Details" panel was blank for every merge (~40% of commits on an
+        # active repo). "separate" lists the files a merge changed vs EACH parent, so even a
+        # sync merge (empty vs its first parent) shows what it brought in from the other. It
+        # emits one log entry per parent, so the parser below dedups by sha and unions files.
+        # Fall back to the plain form on older git that lacks the flag.
+        base = ["git", "-C", path, "log", "-n", str(n), "--name-status", "--no-renames",
+                "--pretty=format:" + fmt]
+        res = subprocess.run(base[:4] + ["--diff-merges=separate"] + base[4:],
+                             capture_output=True, text=True, timeout=40)
+        if res.returncode != 0:
+            res = subprocess.run(base, capture_output=True, text=True, timeout=40)
     except Exception:
         return None
     if res.returncode != 0:
         return None
-    commits = []
+    # "separate" emits one entry PER PARENT for a merge, so accumulate by full sha and
+    # union the files (first-seen status wins) - one timeline event per commit, never blank.
+    by_sha, order = {}, []
     for chunk in res.stdout.split(RS):
         chunk = chunk.strip("\n")
         if not chunk:
@@ -1040,21 +1050,33 @@ def _git_history(path: str, n: int = 80):
         if len(head) < 4:
             continue
         sha, date, author, subject = head[0], head[1], head[2], head[3]
-        fa, fr, fm = [], [], []
+        if sha not in by_sha:
+            by_sha[sha] = {"sha": sha[:10], "ts": date, "author": author, "subject": subject,
+                           "files_added": [], "files_removed": [], "files_modified": [],
+                           "_seen": set()}
+            order.append(sha)
+        ev = by_sha[sha]
+        seen = ev["_seen"]
         for ln in lines[1:]:
             ln = ln.strip()
             if not ln or "\t" not in ln:
                 continue
             status, _sep, fpath = ln.partition("\t")
+            if fpath in seen:
+                continue
+            seen.add(fpath)
             s0 = status[:1]
             if s0 == "A":
-                fa.append(fpath)
+                ev["files_added"].append(fpath)
             elif s0 == "D":
-                fr.append(fpath)
+                ev["files_removed"].append(fpath)
             else:
-                fm.append({"file": fpath})
-        commits.append({"sha": sha[:10], "ts": date, "author": author, "subject": subject,
-                        "files_added": fa, "files_removed": fr, "files_modified": fm})
+                ev["files_modified"].append({"file": fpath})
+    commits = []
+    for k in order:
+        ev = by_sha[k]
+        ev.pop("_seen", None)
+        commits.append(ev)
     return commits
 
 
@@ -1396,8 +1418,17 @@ def track_dirty(rid: str) -> dict:
 
 
 @app.post("/api/v1/repos/{rid}/track/import-git")
-def track_import_git(rid: str, n: int = 80) -> dict:
-    """Backfill the timeline from git commits (deduped by sha)."""
+def track_import_git(rid: str, n: int = 500) -> dict:
+    """Rebuild the commit portion of the timeline from git.
+
+    Commit events are a projection of git history, so we regenerate them from git (the
+    source of truth) rather than append-and-dedup. That way improvements to how commits
+    are read - notably giving merge commits their file list via --diff-merges - reach
+    timelines that were first imported by an older version, which a dedup-by-sha append
+    could never do. Capture/baseline events are NOT derivable from git, so they are
+    preserved untouched, and any older commit beyond the fetch window is kept so history
+    is never lost. The rewrite is atomic (temp + replace) so a torn write can't corrupt
+    the log."""
     import json
     import os as _os
     tdir = _track_dir(rid)
@@ -1418,28 +1449,41 @@ def track_import_git(rid: str, n: int = 80) -> dict:
     commits = _git_history(path, n)
     if commits is None:
         return {"is_git": False, "imported": 0}
+
     events_p = tdir / "events.jsonl"
-    existing = set()
+    preserved, old_commits = [], []          # non-commit events; prior commit events
     if events_p.exists():
         for line in events_p.read_text(encoding="utf-8").splitlines():
             line = line.strip()
-            if line:
-                try:
-                    e = json.loads(line)
-                    if e.get("sha"):
-                        existing.add(e["sha"])
-                except Exception:
-                    pass
-    new = [c for c in commits if c["sha"] not in existing]
-    if new:
-        with events_p.open("a", encoding="utf-8") as fh:
-            for c in reversed(new):
-                fh.write(json.dumps({
-                    "ts": c["ts"], "kind": "commit", "sha": c["sha"], "author": c["author"],
-                    "summary": c["subject"], "files_added": c["files_added"],
-                    "files_removed": c["files_removed"], "files_modified": c["files_modified"],
-                }) + "\n")
-    return {"is_git": True, "imported": len(new)}
+            if not line:
+                continue
+            try:
+                e = json.loads(line)
+            except Exception:
+                continue
+            (old_commits if e.get("kind") == "commit" else preserved).append(e)
+
+    fresh = [{
+        "ts": c["ts"], "kind": "commit", "sha": c["sha"], "author": c["author"],
+        "summary": c["subject"], "files_added": c["files_added"],
+        "files_removed": c["files_removed"], "files_modified": c["files_modified"],
+    } for c in commits]
+    fresh_shas = {c["sha"] for c in commits}
+    prev_shas = {e.get("sha") for e in old_commits}
+    # keep any older commit the fetch window did not cover, so nothing is dropped
+    kept = [e for e in old_commits if e.get("sha") not in fresh_shas]
+    newly = sum(1 for sha in fresh_shas if sha not in prev_shas)
+
+    tmp = events_p.with_name(events_p.name + ".tmp")
+    with tmp.open("w", encoding="utf-8") as fh:
+        for e in preserved:
+            fh.write(json.dumps(e) + "\n")
+        for e in fresh:
+            fh.write(json.dumps(e) + "\n")
+        for e in kept:
+            fh.write(json.dumps(e) + "\n")
+    tmp.replace(events_p)
+    return {"is_git": True, "imported": newly, "commits": len(fresh)}
 
 
 # ── Intel: tech debt, decisions, errors, memory, impact, coverage ──
