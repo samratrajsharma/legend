@@ -1,0 +1,45 @@
+.md { font-size: 14px; line-height: 1.65; color: var(--dash-text-secondary); word-wrap: break-word; }
+.md > *:first-child { margin-top: 0; }
+.md > *:last-child { margin-bottom: 0; }
+
+.md-h { color: var(--dash-text); font-weight: 700; line-height: 1.3; margin: 22px 0 10px; }
+.md-h1 { font-size: 22px; padding-bottom: 8px; border-bottom: 1px solid var(--dash-border); }
+.md-h2 { font-size: 18px; padding-bottom: 6px; border-bottom: 1px solid var(--dash-border); }
+.md-h3 { font-size: 16px; }
+.md-h4 { font-size: 14px; }
+.md-h5, .md-h6 { font-size: 13px; color: var(--dash-text-secondary); }
+
+.md-p { margin: 10px 0; }
+.md-link { color: var(--kyc-accent); text-decoration: none; }
+.md-link:hover { text-decoration: underline; }
+.md-imgtag { color: var(--dash-text-muted); font-style: italic; font-size: 12.5px; }
+
+.md-code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12.5px;
+  background: var(--dash-surface-hover); border: 1px solid var(--dash-border);
+  border-radius: 4px; padding: 1px 5px; color: var(--dash-text);
+}
+.md-pre {
+  background: #0d0d0d; border: 1px solid var(--dash-border); border-radius: 8px;
+  padding: 14px 16px; overflow-x: auto; margin: 12px 0;
+}
+.md-pre code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12.5px;
+  color: var(--dash-text); background: none; border: none; padding: 0; white-space: pre;
+}
+
+.md-list { margin: 10px 0; padding-left: 24px; }
+.md-list li { margin: 4px 0; }
+
+.md-quote {
+  margin: 12px 0; padding: 2px 16px; border-left: 3px solid var(--kyc-accent);
+  background: var(--dash-surface-hover); border-radius: 0 8px 8px 0; color: var(--dash-text-muted);
+}
+
+.md-hr { border: none; border-top: 1px solid var(--dash-border); margin: 20px 0; }
+
+.md-table-wrap { overflow-x: auto; margin: 12px 0; }
+.md-table { border-collapse: collapse; width: 100%; font-size: 13px; }
+.md-table th, .md-table td { border: 1px solid var(--dash-border); padding: 7px 11px; text-align: left; }
+.md-table th { background: var(--dash-surface-hover); color: var(--dash-text); font-weight: 600; }
+.md-table td { color: var(--dash-text-secondary); }

@@ -113,6 +113,7 @@ export const kycApi = {
 
   // Overview / Files
   overview: (rid: string) => api.get<OverviewResponse>(`/repos/${rid}/overview`),
+  readme:       (rid: string) => api.get<{ found: boolean; file: string | null; text: string }>(`/repos/${rid}/readme`),
   files: (rid: string) => api.get<{ files: string[]; by_language: Record<string, string[]> }>(`/repos/${rid}/files`),
   fileSummary: (rid: string, file: string) => api.get(`/repos/${rid}/files/summary`, { params: { file } }),
   fileContent: (rid: string, file: string) =>

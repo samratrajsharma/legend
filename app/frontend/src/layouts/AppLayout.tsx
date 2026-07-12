@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { NavLink, Outlet, useParams, useNavigate, Link } from 'react-router-dom';
 import { kycApi, RepoListItem } from '../api/client';
 import './AppLayout.css';
@@ -7,7 +7,7 @@ const NAV_TABS = [
   { to: 'overview',  label: 'Overview' },
   { to: 'timeline',  label: 'Timeline' },
   { to: 'files',     label: 'Files' },
-  { to: 'diagrams',  label: 'Diagrams' },
+  { to: 'diagrams',  label: 'Insight Graph' },
   { to: 'api-db',    label: 'API & DB' },
   { to: 'ask',       label: 'Ask' },
   { to: 'track',     label: 'Track' },
@@ -25,11 +25,48 @@ const GearIcon = () => (
     <path d="M8 1.7v1.4M8 12.9v1.4M14.3 8h-1.4M3.1 8H1.7M12.4 3.6l-1 1M4.6 11.4l-1 1M12.4 12.4l-1-1M4.6 4.6l-1-1" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
   </svg>
 );
+const DownloadIcon = () => (
+  <svg width="15" height="15" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+    <path d="M8 2v8m0 0L5 7m3 3l3-3M3 12.5h10" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+);
 const CloseIcon = () => (
   <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
     <path d="M3 3l6 6M9 3l-6 6" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
   </svg>
 );
+
+function ReportButton({ repoId }: { repoId: string }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  // Close when clicking anywhere outside the control. The previous onMouseLeave
+  // closed the menu the instant the cursor crossed the gap to reach it, so it was
+  // impossible to pick a format.
+  useEffect(() => {
+    if (!open) return;
+    const onDoc = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener('mousedown', onDoc);
+    return () => document.removeEventListener('mousedown', onDoc);
+  }, [open]);
+  const url = (fmt: string) => `/api/v1/repos/${repoId}/report?fmt=${fmt}`;
+  return (
+    <div className="report" ref={ref}>
+      <button type="button" className="report__btn" onClick={() => setOpen(o => !o)} aria-haspopup="true" aria-expanded={open}>
+        <DownloadIcon />
+        <span>Download report</span>
+      </button>
+      {open && (
+        <div className="report__menu" role="menu">
+          <a className="report__item" role="menuitem" href={url('pdf')} onClick={() => setOpen(false)}>PDF <span>.pdf</span></a>
+          <a className="report__item" role="menuitem" href={url('docx')} onClick={() => setOpen(false)}>Word <span>.docx</span></a>
+          <a className="report__item" role="menuitem" href={url('md')} onClick={() => setOpen(false)}>Markdown <span>.md</span></a>
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function AppLayout() {
   const [repos, setRepos] = useState<RepoListItem[]>([]);
@@ -120,6 +157,12 @@ export default function AppLayout() {
       </aside>
 
       <main className="main">
+        {repoId && currentRepo && (
+          <div className="topbar">
+            <span className="topbar__repo" title={currentRepo.source}>{currentRepo.name}</span>
+            <ReportButton repoId={repoId} />
+          </div>
+        )}
         <Outlet />
       </main>
     </div>

@@ -40,7 +40,7 @@ export default function Diagrams() {
   if (loading) return <div className="dash-loading">Building architecture map…</div>;
   if (error) return (
     <div>
-      <div className="page-header"><h1>Architecture</h1></div>
+      <div className="page-header"><h1>Insight Graph</h1></div>
       <div className="card">
         <div className="toast toast--err">{error}</div>
         <button className="btn btn--primary btn--sm" style={{ marginTop: 10 }} onClick={() => setRefreshTick(t => t + 1)}>Regenerate</button>
@@ -53,7 +53,7 @@ export default function Diagrams() {
   return (
     <div className="diag">
       <div className="page-header">
-        <h1>Architecture</h1>
+        <h1>Insight Graph</h1>
         <p>Three-layer view: directories (areas) → files inside → source + analysis. Click anywhere to drill down. Esc returns.</p>
       </div>
 

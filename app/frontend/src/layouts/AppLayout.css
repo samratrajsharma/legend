@@ -100,3 +100,44 @@
   .sidebar { width: 200px; }
   .main { margin-left: 200px; padding: 20px 16px; }
 }
+
+/* ── Top bar (all repo tabs): repo name + highlighted Download report ── */
+.topbar {
+  position: sticky; top: 0; z-index: 30;
+  display: flex; align-items: center; justify-content: space-between; gap: 16px;
+  padding: 12px 20px; margin: -24px -24px 20px;
+  background: rgba(10, 10, 10, 0.82); backdrop-filter: blur(8px);
+  border-bottom: 1px solid var(--dash-border);
+}
+.topbar__repo { font-size: 13px; font-weight: 600; color: var(--dash-text-secondary); }
+
+.report { position: relative; }
+.report__btn {
+  display: inline-flex; align-items: center; gap: 8px;
+  font: inherit; font-size: 13px; font-weight: 700; cursor: pointer;
+  padding: 8px 16px; border-radius: 8px; border: none;
+  background: var(--kyc-accent); color: #05140a;
+  box-shadow: 0 2px 10px rgba(30, 215, 96, 0.28);
+  transition: filter 0.12s, transform 0.06s;
+}
+.report__btn:hover { filter: brightness(1.08); }
+.report__btn:active { transform: translateY(1px); }
+.report__btn svg { flex: none; }
+
+.report__menu {
+  position: absolute; right: 0; top: calc(100% + 6px); z-index: 40;
+  min-width: 180px; padding: 6px;
+  background: var(--dash-surface); border: 1px solid var(--dash-border);
+  border-radius: 10px; box-shadow: 0 12px 34px rgba(0, 0, 0, 0.55);
+}
+.report__item {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 9px 12px; border-radius: 7px; text-decoration: none;
+  font-size: 13px; font-weight: 600; color: var(--dash-text);
+}
+.report__item span { font-size: 11.5px; color: var(--dash-text-muted); font-weight: 500; }
+.report__item:hover { background: var(--kyc-accent-dim); color: var(--kyc-accent); }
+.report__item:hover span { color: var(--kyc-accent); }
+
+/* keep the dropdown clickable above page content regardless of the topbar blur context */
+.report__menu { z-index: 60; }

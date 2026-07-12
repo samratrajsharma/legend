@@ -3,19 +3,22 @@ import { useParams } from 'react-router-dom';
 import { kycApi, OverviewResponse } from '../../api/client';
 import './Overview.css';
 import InfoTip from '../../components/InfoTip/InfoTip';
+import Markdown from '../../components/Markdown/Markdown';
 import { gdef } from '../../lib/glossary';
 
 export default function Overview() {
   const { repoId } = useParams<{ repoId: string }>();
   const [data, setData] = useState<OverviewResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [readme, setReadme] = useState<{ found: boolean; file?: string | null; text?: string } | null>(null);
 
   useEffect(() => {
     if (!repoId) return;
-    setData(null); setError(null);
+    setData(null); setError(null); setReadme(null);
     kycApi.overview(repoId)
       .then(r => setData(r.data))
       .catch(e => setError(e?.response?.data?.detail || 'Failed to load overview'));
+    kycApi.readme(repoId).then(r => setReadme(r.data)).catch(() => setReadme({ found: false }));
   }, [repoId]);
 
   if (error) {
@@ -155,6 +158,15 @@ export default function Overview() {
           </div>
         )}
       </div>
+
+      {readme?.found && readme.text && (
+        <div className="card ov-readme">
+          <div className="card-header">
+            <h3>README<span className="ov-readme__path">{readme.file}</span></h3>
+          </div>
+          <Markdown text={readme.text} />
+        </div>
+      )}
     </div>
   );
 }

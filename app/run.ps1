@@ -215,7 +215,7 @@ if ($ActiveConda -or $ActiveVenv) {
 # ----- Install Python deps if the marker is missing OR the interpreter can't import them
 $DepsOk = $false
 if (Test-Path $DepsMarker) {
-    try { & $Python -c "import fastapi, uvicorn, pydantic, dotenv" 2>$null } catch {}
+    try { & $Python -c "import fastapi, uvicorn, pydantic, dotenv, docx, reportlab" 2>$null } catch {}
     $DepsOk = ($LASTEXITCODE -eq 0)
 }
 if (-not $DepsOk) {

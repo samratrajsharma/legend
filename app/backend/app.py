@@ -581,6 +581,226 @@ def file_content(rid: str, file: str) -> dict:
     return {"file": pf.file, "language": pf.language, "loc": pf.loc, "text": pf.text}
 
 
+# ── README (raw markdown for the Overview viewer) ────────────────
+@app.get("/api/v1/repos/{rid}/readme")
+def repo_readme(rid: str) -> dict:
+    """The repo's top-level README (case-insensitive), if any, as raw markdown."""
+    idx = _require_idx(rid)
+    def build():
+        cands = []
+        for p in idx.parsed_files:
+            base = p.file.replace("\\", "/").rsplit("/", 1)[-1].lower()
+            if base == "readme" or base == "readme.md" or base.startswith("readme."):
+                depth = p.file.replace("\\", "/").count("/")
+                cands.append((depth, len(p.file), p))
+        if not cands:
+            return {"found": False, "file": None, "text": ""}
+        cands.sort(key=lambda x: (x[0], x[1]))
+        pf = cands[0][2]
+        return {"found": True, "file": pf.file, "text": pf.text or ""}
+    return _memo(idx, "readme", build)
+
+
+# ── Full report: md / docx / pdf ─────────────────────────────────
+def _report_sections(idx) -> list:
+    """Format-agnostic report of everything the system knows about the repo;
+    rendered to markdown / docx / pdf by the helpers below."""
+    ins = insights.repo_insights(idx)
+    langs = insights.language_breakdown(idx)
+    debt = techdebt.debt_summary(idx)
+    routes = insights.api_map(idx)
+    models = insights.db_map(idx)
+    cfg = config_map.config_surface(idx)
+    st = idx.stats()
+    secs = [{"h": "Overview", "kv": [
+        ("Repository", st.get("repo", "")),
+        ("Commit", str(st.get("commit", ""))),
+        ("Source path", getattr(idx.meta, "path", "")),
+        ("Retriever", st.get("retriever", "")),
+        ("Code files", st.get("files_parsed", 0)),
+        ("Symbols", st.get("symbols", 0)),
+        ("Chunks", st.get("chunks", 0)),
+        ("Total LOC", ins.get("loc_total", 0)),
+        ("Avg complexity / function", ins.get("avg_complexity", 0)),
+        ("Parse errors", st.get("parse_errors", 0)),
+    ]}]
+    if langs:
+        secs.append({"h": "Languages", "table": {
+            "cols": ["Language", "Files", "LOC", "Symbols"],
+            "rows": [[l["language"], l["files"], l["loc"], l["symbols"]]
+                     for l in sorted(langs, key=lambda x: -x["loc"])]}})
+    if ins.get("entry_files"):
+        secs.append({"h": "Entry points", "bullets": list(ins["entry_files"])})
+    if ins.get("hub_files"):
+        secs.append({"h": "Hub files", "table": {
+            "cols": ["File", "Imported by", "Imports"],
+            "rows": [[h["file"], h["imported_by"], h["imports"]] for h in ins["hub_files"]]}})
+    if ins.get("complex_symbols"):
+        secs.append({"h": "Most complex symbols", "table": {
+            "cols": ["Symbol", "File", "Complexity"],
+            "rows": [[c["symbol"], c["file"], c["complexity"]] for c in ins["complex_symbols"]]}})
+    if routes:
+        secs.append({"h": "HTTP routes (%d)" % len(routes), "table": {
+            "cols": ["Method", "Path", "File"],
+            "rows": [[r["method"], r["path"], r["file"]] for r in routes[:100]]}})
+    if models:
+        secs.append({"h": "Data models (%d)" % len(models), "table": {
+            "cols": ["Model", "Table", "File"],
+            "rows": [[m.get("model", ""), m.get("table", ""), m.get("file", "")] for m in models[:100]]}})
+    if cfg:
+        secs.append({"h": "Configuration surface", "table": {
+            "cols": ["Source", "Kind", "Keys"],
+            "rows": [[c["source"], c["kind"], ", ".join(c["items"][:20])] for c in cfg]}})
+    secs.append({"h": "Tech debt summary", "kv": [
+        ("Likely dead code", len(debt["dead_code"])),
+        ("Complexity hotspots", len(debt["complexity_hotspots"])),
+        ("God files", len(debt["god_files"])),
+        ("Near-duplicate pairs", len(debt["duplicates"])),
+        ("Import cycles", len(debt["import_cycles"])),
+        ("Undocumented symbols", len(debt["undocumented"])),
+    ]})
+    if debt["dead_code"]:
+        secs.append({"h": "Likely dead code (%d)" % len(debt["dead_code"]), "table": {
+            "cols": ["Symbol", "File"],
+            "rows": [[d.get("symbol", ""), d.get("file", "")] for d in debt["dead_code"][:50]]}})
+    if debt["import_cycles"]:
+        secs.append({"h": "Import cycles (%d)" % len(debt["import_cycles"]),
+                     "bullets": [" -> ".join(c) for c in debt["import_cycles"][:30]]})
+    files = [p.file for p in idx.parsed_files]
+    secs.append({"h": "Indexed files (%d)" % len(files), "bullets": files[:250]})
+    return secs
+
+
+def _report_md(name, secs) -> str:
+    import datetime
+    out = ["# Know Your Code - Report: %s" % name, "",
+           "_Generated %s_" % datetime.datetime.now().strftime("%Y-%m-%d %H:%M"), ""]
+    for s in secs:
+        out.append("## " + s["h"]); out.append("")
+        if "kv" in s:
+            for k, v in s["kv"]:
+                out.append("- **%s:** %s" % (k, v))
+            out.append("")
+        if "bullets" in s:
+            for b in s["bullets"]:
+                out.append("- %s" % b)
+            out.append("")
+        if "table" in s:
+            cols = s["table"]["cols"]
+            out.append("| " + " | ".join(cols) + " |")
+            out.append("| " + " | ".join(["---"] * len(cols)) + " |")
+            for row in s["table"]["rows"]:
+                out.append("| " + " | ".join(str(c).replace("|", "\\|") for c in row) + " |")
+            out.append("")
+    return "\n".join(out)
+
+
+def _report_docx(name, secs) -> bytes:
+    import io, datetime
+    from docx import Document
+    doc = Document()
+    doc.add_heading("Know Your Code - Report: %s" % name, 0)
+    doc.add_paragraph("Generated %s" % datetime.datetime.now().strftime("%Y-%m-%d %H:%M"))
+    for s in secs:
+        doc.add_heading(s["h"], level=1)
+        if "kv" in s:
+            for k, v in s["kv"]:
+                p = doc.add_paragraph()
+                p.add_run("%s: " % k).bold = True
+                p.add_run(str(v))
+        if "bullets" in s:
+            for b in s["bullets"]:
+                doc.add_paragraph(str(b), style="List Bullet")
+        if "table" in s:
+            cols = s["table"]["cols"]; rows = s["table"]["rows"]
+            t = doc.add_table(rows=1, cols=len(cols))
+            try:
+                t.style = "Table Grid"
+            except Exception:
+                pass
+            for i, c in enumerate(cols):
+                t.rows[0].cells[i].text = str(c)
+            for row in rows:
+                cells = t.add_row().cells
+                for i, c in enumerate(row):
+                    cells[i].text = str(c)
+    buf = io.BytesIO(); doc.save(buf); return buf.getvalue()
+
+
+def _report_pdf(name, secs) -> bytes:
+    import io, datetime, html as _html
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib import colors
+    from reportlab.lib.styles import getSampleStyleSheet
+    from reportlab.lib.units import mm
+    from reportlab.platypus import (SimpleDocTemplate, Paragraph, Spacer, Table,
+                                     TableStyle, ListFlowable, ListItem)
+    buf = io.BytesIO()
+    doc = SimpleDocTemplate(buf, pagesize=A4, topMargin=18 * mm, bottomMargin=18 * mm,
+                            leftMargin=16 * mm, rightMargin=16 * mm)
+    ss = getSampleStyleSheet()
+    def esc(x):
+        return _html.escape(str(x))
+    flow = [Paragraph("Know Your Code - Report: %s" % esc(name), ss["Title"]),
+            Paragraph("Generated %s" % datetime.datetime.now().strftime("%Y-%m-%d %H:%M"), ss["Normal"]),
+            Spacer(1, 8)]
+    for s in secs:
+        flow.append(Spacer(1, 6))
+        flow.append(Paragraph(esc(s["h"]), ss["Heading2"]))
+        if "kv" in s:
+            for k, v in s["kv"]:
+                flow.append(Paragraph("<b>%s:</b> %s" % (esc(k), esc(v)), ss["Normal"]))
+        if "bullets" in s:
+            flow.append(ListFlowable(
+                [ListItem(Paragraph(esc(b), ss["BodyText"])) for b in s["bullets"][:250]],
+                bulletType="bullet"))
+        if "table" in s:
+            data = [[Paragraph(esc(c), ss["BodyText"]) for c in s["table"]["cols"]]]
+            for row in s["table"]["rows"]:
+                data.append([Paragraph(esc(c), ss["BodyText"]) for c in row])
+            t = Table(data, repeatRows=1, hAlign="LEFT")
+            t.setStyle(TableStyle([
+                ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#1DB954")),
+                ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+                ("FONTSIZE", (0, 0), (-1, -1), 8),
+                ("GRID", (0, 0), (-1, -1), 0.4, colors.HexColor("#cccccc")),
+                ("VALIGN", (0, 0), (-1, -1), "TOP"),
+            ]))
+            flow.append(t)
+    doc.build(flow)
+    return buf.getvalue()
+
+
+@app.get("/api/v1/repos/{rid}/report")
+def repo_report(rid: str, fmt: str = "md"):
+    """Full analysis report as a download. fmt = md | docx | pdf."""
+    import re as _re
+    from fastapi.responses import Response
+    idx = _require_idx(rid)
+    fmt = (fmt or "md").lower().lstrip(".")
+    name = idx.stats().get("repo", "repo") or "repo"
+    safe = _re.sub(r"[^A-Za-z0-9_.-]+", "_", name) or "repo"
+    secs = _report_sections(idx)
+    if fmt == "md":
+        data = _report_md(name, secs).encode("utf-8"); media = "text/markdown"; ext = "md"
+    elif fmt == "docx":
+        try:
+            data = _report_docx(name, secs)
+        except ImportError:
+            raise HTTPException(503, "Word export needs python-docx (pip install python-docx).")
+        media = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"; ext = "docx"
+    elif fmt == "pdf":
+        try:
+            data = _report_pdf(name, secs)
+        except ImportError:
+            raise HTTPException(503, "PDF export needs reportlab (pip install reportlab).")
+        media = "application/pdf"; ext = "pdf"
+    else:
+        raise HTTPException(400, "fmt must be md, docx, or pdf")
+    return Response(content=data, media_type=media, headers={
+        "Content-Disposition": 'attachment; filename="knowyourcode-report-%s.%s"' % (safe, ext)})
+
+
 # ── Graph nodes ─────────────────────────────────────────────────
 # Kept because the Intel/Impact subtab needs the list of symbols to populate
 # its picker. The richer per-view diagram endpoints (mindmap / class / etc.)

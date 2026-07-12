@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { kycApi, FunctionExplainResponse } from '../../api/client';
 import './Files.css';
+import Markdown from '../../components/Markdown/Markdown';
 
 // ─────────────────────────────────────────────────────────────────
 // File tree node model — folders contain children, files don't.
@@ -268,7 +269,9 @@ export default function Files() {
                       )}
                     </div>
                   )}
-                  <pre className="files__code">{content?.text || ''}</pre>
+                  {content?.language === 'markdown'
+                    ? <div className="files__md"><Markdown text={content.text} /></div>
+                    : <pre className="files__code">{content?.text || ''}</pre>}
                 </>
               )}
             </>
