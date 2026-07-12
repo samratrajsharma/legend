@@ -164,6 +164,7 @@ def import_cycles(idx):
         if color[root] != 0:
             continue
         path = [root]
+        pos = {root: 0}                       # node -> index in path, O(1) vs path.index
         frames = [(root, iter(adj.get(root, ())))]
         color[root] = 1
         while frames:
@@ -172,14 +173,15 @@ def import_cycles(idx):
             for v in it:
                 cv = color.get(v, 0)
                 if cv == 1:
-                    if v in path:
-                        cyc = path[path.index(v):]
+                    if v in pos:
+                        cyc = path[pos[v]:]
                         key = frozenset(cyc)
                         if len(cyc) > 1 and key not in seen:
                             seen.add(key)
                             cycles.append(list(cyc))
                 elif cv == 0:
                     color[v] = 1
+                    pos[v] = len(path)
                     path.append(v)
                     frames.append((v, iter(adj.get(v, ()))))
                     advanced = True
@@ -188,7 +190,7 @@ def import_cycles(idx):
                 color[u] = 2
                 frames.pop()
                 if path and path[-1] == u:
-                    path.pop()
+                    pos.pop(path.pop(), None)
     return cycles
 
 

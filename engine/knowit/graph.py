@@ -98,7 +98,7 @@ def build_graph(parsed_files):
             file_name_index[(pf.file, sym.name)].append(sym.id)
             file_modules[sym.id] = mods
 
-    def resolve(caller_file, caller_imports, name, want_class=False):
+    def resolve(caller_file, caller_imp_expanded, name, want_class=False):
         """Scope a bare callee/base name to real targets instead of every
         same-named symbol in the repo (the old behaviour, which manufactured
         phantom call/inherit edges). Order: unambiguous repo-wide -> same file
@@ -117,27 +117,26 @@ def build_graph(parsed_files):
             same = [c for c in same if (g.get(c) or {}).get("data", {}).get("kind") == "class"]
         if same:
             return same                          # local definition wins
-        if caller_imports:
-            imp = set(caller_imports)
-            imp |= {i.split(".")[-1] for i in caller_imports}
-            hit = [c for c in cands if file_modules.get(c, set()) & imp]
+        if caller_imp_expanded:
+            hit = [c for c in cands if file_modules.get(c, set()) & caller_imp_expanded]
             if len(hit) == 1:
                 return hit                       # exactly one imported match
         return []                                # ambiguous -> unresolved
 
     for pf in parsed_files:
-        imports = pf.imports
+        # expand the caller's imports ONCE per file (was rebuilt per call/base edge)
+        imp_expanded = set(pf.imports) | {i.split(".")[-1] for i in pf.imports}
         for sym in pf.symbols:
             if sym.parent:
                 parent_id = f"{pf.file}::{sym.parent}"
                 if parent_id in g.nodes:
                     g.add_edge(sym.id, parent_id, "method_of")
             for callee in sym.calls:
-                for target in resolve(pf.file, imports, callee):
+                for target in resolve(pf.file, imp_expanded, callee):
                     if target != sym.id:
                         g.add_edge(sym.id, target, "calls")
             for base in sym.bases:
-                for target in resolve(pf.file, imports, base, want_class=True):
+                for target in resolve(pf.file, imp_expanded, base, want_class=True):
                     if target != sym.id:
                         g.add_edge(sym.id, target, "inherits")
 

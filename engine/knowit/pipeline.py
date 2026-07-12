@@ -24,6 +24,7 @@ class RepoIndex:
         self.lexical = lexical
         self.dense = dense
         self.config = config
+        self.memo = {}          # per-index cache for pure analyses (insights, overview, ...)
         self.chunks_by_id = {c.id: c for c in chunks}
         self.chunks_by_node = defaultdict(list)
         for c in chunks:

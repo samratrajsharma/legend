@@ -6,6 +6,7 @@ from __future__ import annotations
 import os
 import sys
 import hashlib
+import json
 import threading
 import traceback
 from pathlib import Path
@@ -157,6 +158,17 @@ def _rehydrate(rid: str) -> bool:
                        "message": "Reloading after restart...", "name": _name_from_source(src)}
     threading.Thread(target=_index_worker, args=(rid, src, _engine_config()), daemon=True).start()
     return True
+
+
+def _memo(idx, key, compute):
+    """Cache a pure analysis on the (immutable) index so repeated requests/callers do
+    not recompute it. New index object on reconnect/recapture => fresh cache, no stale."""
+    m = getattr(idx, "memo", None)
+    if m is None:
+        return compute()
+    if key not in m:
+        m[key] = compute()
+    return m[key]
 
 
 def _require_idx(rid: str):
@@ -508,23 +520,22 @@ def disconnect_repo(rid: str):
 @app.get("/api/v1/repos/{rid}/overview")
 def repo_overview(rid: str) -> dict:
     idx = _require_idx(rid)
-    return {
+    return _memo(idx, "overview", lambda: {
         "stats": idx.stats(),
         "insights": insights.repo_insights(idx),
         "languages": insights.language_breakdown(idx),
         "config_surface": config_map.config_surface(idx),
-    }
+    })
 
 @app.get("/api/v1/repos/{rid}/files")
 def repo_files(rid: str) -> dict:
     idx = _require_idx(rid)
-    return {
-        "files": [p.file for p in idx.parsed_files],
-        "by_language": {
-            lang: [p.file for p in idx.parsed_files if p.language == lang]
-            for lang in {p.language for p in idx.parsed_files}
-        },
-    }
+    def build():
+        by_lang: dict[str, list] = {}
+        for p in idx.parsed_files:               # single pass instead of one scan per language
+            by_lang.setdefault(p.language, []).append(p.file)
+        return {"files": [p.file for p in idx.parsed_files], "by_language": by_lang}
+    return _memo(idx, "files", build)
 
 def _find_parsed_file(idx, file: str):
     """Find a ParsedFile tolerant of path-format differences. The codemap tool

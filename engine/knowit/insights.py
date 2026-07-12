@@ -8,6 +8,9 @@ def _is_entry(pf):
 
 
 def repo_insights(idx):
+    memo = getattr(idx, "memo", None)
+    if memo is not None and "repo_insights" in memo:
+        return memo["repo_insights"]
     g = idx.graph
     py = [p for p in idx.parsed_files if p.language == "python"]
     entry_set = {p.file for p in py if _is_entry(p)}
@@ -44,7 +47,7 @@ def repo_insights(idx):
     dead.sort(key=lambda x: x["file"])
 
     comps = [d.get("complexity", 0) for d in syms if d.get("kind") != "class"]
-    return {
+    result = {
         "entry_files": sorted(entry_set),
         "hub_files": hubs[:8],
         "complex_symbols": complex_top,
@@ -54,6 +57,9 @@ def repo_insights(idx):
         "n_python": len(py),
         "n_symbols": len(syms),
     }
+    if memo is not None:
+        memo["repo_insights"] = result
+    return result
 
 
 def file_summary(idx, file_rel):

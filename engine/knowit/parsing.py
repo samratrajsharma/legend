@@ -36,6 +36,28 @@ def _collect_calls(fn_node):
     return out
 
 
+def _calls_and_complexity(node):
+    """Calls list + cyclomatic complexity in ONE ast.walk of the subtree, instead of
+    two separate walks (perf: every function subtree was walked twice). Output is
+    identical to _collect_calls(node) + _complexity(node)."""
+    calls, seen = [], set()
+    c = 1
+    for n in ast.walk(node):
+        if isinstance(n, ast.Call):
+            nm = _callee_name(n.func)
+            if nm and nm not in seen:
+                seen.add(nm)
+                calls.append(nm)
+        elif isinstance(n, (ast.If, ast.For, ast.AsyncFor, ast.While,
+                            ast.ExceptHandler, ast.IfExp, ast.Assert)):
+            c += 1
+        elif isinstance(n, ast.BoolOp):
+            c += len(n.values) - 1
+        elif isinstance(n, ast.comprehension):
+            c += 1 + len(n.ifs)
+    return calls, c
+
+
 def _segment(lines, node):
     start = getattr(node, "lineno", 1)
     end = getattr(node, "end_lineno", start)
@@ -126,13 +148,15 @@ def parse_python(rel_path, source):
         else:
             kind = "function"
         code, s, e = _segment(lines, node)
+        if isinstance(node, ast.ClassDef):
+            calls, cx = [], 0
+        else:
+            calls, cx = _calls_and_complexity(node)
         pf.symbols.append(Symbol(
             id=f"{rel_path}::{qual}", name=node.name, qualname=qual, kind=kind,
             file=rel_path, start_line=s, end_line=e,
             docstring=(ast.get_docstring(node) or ""), code=code,
-            calls=[] if isinstance(node, ast.ClassDef) else _collect_calls(node),
-            parent=parent,
-            complexity=0 if isinstance(node, ast.ClassDef) else _complexity(node),
+            calls=calls, parent=parent, complexity=cx,
             bases=_bases(node) if isinstance(node, ast.ClassDef) else [],
         ))
         if isinstance(node, ast.ClassDef):

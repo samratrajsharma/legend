@@ -54,9 +54,11 @@ def is_git(path):
 
 
 def git_log(path, n=30):
-    if not is_git(path):
-        return []
+    # No separate is_git() probe: `git log` on a non-repo just fails and yields no
+    # lines, so the pre-check was one extra subprocess for the same result.
     r = _git(["log", f"-n{n}", "--pretty=format:%H|%h|%an|%ad|%s", "--date=short"], path)
+    if r.returncode != 0:
+        return []
     out = []
     for line in r.stdout.splitlines():
         parts = line.split("|", 4)
