@@ -1,4 +1,4 @@
-/* ── Orchestraty design tokens (copied from index.css, then tuned for KnowIT) ── */
+/* ── Know Your Code design tokens ── */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 :root {
@@ -129,7 +129,7 @@ input, select, textarea { font-family: inherit; }
   box-shadow: 0 0 0 3px var(--dash-primary-dim);
 }
 
-/* ── Stat cards (reuses Orchestraty pattern) ─────────────────── */
+/* ── Stat cards ─────────────────── */
 .stats {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
@@ -169,7 +169,7 @@ input, select, textarea { font-family: inherit; }
 }
 .table tr:hover td { background: var(--dash-surface-hover); }
 
-/* ── Loading (matches Orchestraty pattern, uses logo spinner) ── */
+/* ── Loading (logo spinner) ── */
 .dash-loading {
   display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 12px;
   min-height: 240px; color: var(--dash-text-secondary); font-size: 14px;
@@ -177,7 +177,7 @@ input, select, textarea { font-family: inherit; }
 .dash-loading::before {
   content: '';
   width: 48px; height: 48px;
-  background: url('/orchestraty-icon.svg') center / contain no-repeat;
+  background: url('/knowyourcode-icon.svg') center / contain no-repeat;
   animation: spin 1.2s linear infinite;
   transform-origin: 50% 50%;
 }

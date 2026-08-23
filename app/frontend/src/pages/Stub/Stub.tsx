@@ -9,7 +9,7 @@ export default function Stub({ title }: { title: string }) {
       </div>
       <div className="card stub">
         <div className="stub__icon" aria-hidden="true">
-          <img src="/orchestraty-icon.svg" width={64} height={64} alt="" />
+          <img src="/knowyourcode-icon.svg" width={64} height={64} alt="" />
         </div>
         <h3 className="stub__title">{title} is on the way</h3>
         <p className="stub__body">

@@ -92,7 +92,7 @@ export default function AppLayout() {
     <div className="layout">
       <aside className="sidebar">
         <Link to="/" className="sidebar__brand">
-          <img src="/orchestraty-icon.svg" width={28} height={28} alt="" />
+          <img src="/knowyourcode-icon.svg" width={28} height={28} alt="" />
           <div>
             <div className="sidebar__brand-name">Know Your Code</div>
             <div className="sidebar__brand-sub">Testbed</div>
