@@ -27,6 +27,7 @@ class ParsedFile:
     file: str
     language: str
     imports: list[str] = field(default_factory=list)
+    import_targets: list[str] = field(default_factory=list)  # from-import submodule candidates (graph only)
     symbols: list[Symbol] = field(default_factory=list)
     loc: int = 0
     text: str = ""

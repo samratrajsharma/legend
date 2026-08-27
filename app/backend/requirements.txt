@@ -43,3 +43,10 @@ python-pptx>=0.6.23
 # pyvis>=0.3.2
 # PyYAML>=6.0
 # pandas>=2.2
+
+# ── Optional: multi-language parsing (Go/Java/Rust/C#/Ruby/PHP/C/C++) ────────
+# Without these, those files are still indexed as searchable text; with them you
+# also get symbols + call edges. Verify after install:
+#   python engine/scripts/verify_treesitter.py
+# tree-sitter>=0.21
+# tree-sitter-language-pack>=0.2
