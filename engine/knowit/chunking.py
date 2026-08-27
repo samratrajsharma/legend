@@ -14,6 +14,20 @@ def _truncate(text, max_lines):
     return "\n".join(lines[:max_lines]) + f"\n# ... ({len(lines) - max_lines} more lines truncated)"
 
 
+def _module_level_code(pf, max_lines):
+    """Source lines NOT inside any function/class - module-level settings, constants,
+    route tables, and __main__ blocks. These were never chunked, so Ask could not see
+    them (QA #17). Folded into the module chunk (same id) so chunk counts are unchanged."""
+    if not pf.text:
+        return ""
+    covered = set()
+    for sym in pf.symbols:
+        covered.update(range(sym.start_line, sym.end_line + 1))
+    kept = [ln for i, ln in enumerate(pf.text.splitlines(), 1)
+            if i not in covered and ln.strip()]
+    return _truncate("\n".join(kept), max_lines)
+
+
 def make_chunks(parsed_files, commit, max_lines=160):
     chunks = []
     # Chunk .id is the primary key for both the BM25 dict and Chroma's col.add.
@@ -33,9 +47,11 @@ def make_chunks(parsed_files, commit, max_lines=160):
             header = (f"FILE {pf.file} ({pf.language})\n"
                       f"imports: {', '.join(pf.imports) or 'none'}\n"
                       f"defines: {sym_names}")
+            mod_code = _module_level_code(pf, max_lines) if pf.language == "python" else ""
+            module_text = header + ("\n\n" + mod_code if mod_code else "")
             chunks.append(Chunk(
                 id=uid(_hash(pf.file, "module")), file=pf.file, kind="module", name=pf.file,
-                start_line=1, end_line=pf.loc, text=header,
+                start_line=1, end_line=pf.loc, text=module_text,
                 node_id=pf.file, commit=commit, symbol_id=None,
             ))
             for s in pf.symbols:

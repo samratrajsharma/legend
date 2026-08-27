@@ -25,6 +25,41 @@ def _callee_name(func):
     return None
 
 
+def _deco_name(d):
+    """Last component of a decorator expression: @app.get(...) -> 'get', @property -> 'property'."""
+    if isinstance(d, ast.Call):
+        d = d.func
+    if isinstance(d, ast.Attribute):
+        return d.attr
+    if isinstance(d, ast.Name):
+        return d.id
+    return ""
+
+
+def _module_all(tree):
+    """Names listed in a module-level __all__ = [...] / (...)."""
+    for node in tree.body:
+        if isinstance(node, ast.Assign) and any(
+                isinstance(t, ast.Name) and t.id == "__all__" for t in node.targets):
+            if isinstance(node.value, (ast.List, ast.Tuple)):
+                return [e.value for e in node.value.elts
+                        if isinstance(e, ast.Constant) and isinstance(e.value, str)]
+    return []
+
+
+def _has_main_guard(tree):
+    """True iff the module has a real `if __name__ == '__main__':` at top level - not just
+    the string '__main__' somewhere in a comment or docstring."""
+    for node in tree.body:
+        if isinstance(node, ast.If) and isinstance(node.test, ast.Compare):
+            t = node.test
+            names = [t.left] + list(t.comparators)
+            if any(isinstance(n, ast.Name) and n.id == "__name__" for n in names) and \
+               any(isinstance(n, ast.Constant) and n.value == "__main__" for n in names):
+                return True
+    return False
+
+
 def _collect_calls(fn_node):
     out, seen = [], set()
     for n in ast.walk(fn_node):
@@ -36,11 +71,39 @@ def _collect_calls(fn_node):
     return out
 
 
-def _calls_and_complexity(node):
-    """Calls list + cyclomatic complexity in ONE ast.walk of the subtree, instead of
-    two separate walks (perf: every function subtree was walked twice). Output is
-    identical to _collect_calls(node) + _complexity(node)."""
-    calls, seen = [], set()
+def _receiver_root(node):
+    """Leftmost Name of a receiver chain: os.path.join -> 'os', a.b.c() -> 'a'."""
+    while isinstance(node, ast.Attribute):
+        node = node.value
+    if isinstance(node, ast.Call):
+        return _receiver_root(node.func)
+    return node.id if isinstance(node, ast.Name) else None
+
+
+def _call_site(func, import_names):
+    """Classify a call's receiver so the graph doesn't fabricate edges from bare attribute
+    names (QA #12). Returns (kind, name) or None:
+      bare  foo()             -> ("bare", "foo")   resolvable by import/same-file/unique
+      self  self.m()/cls.m()  -> ("self", "m")     resolved within the class hierarchy
+      attr  obj.m()           -> ("attr", "m")     resolved by the normal ladder
+      import-rooted receiver (log.info(), os.path.join(), np.array()) -> None (external)."""
+    if isinstance(func, ast.Name):
+        return ("bare", func.id)
+    if isinstance(func, ast.Attribute):
+        recv = func.value
+        if isinstance(recv, ast.Name) and recv.id in ("self", "cls"):
+            return ("self", func.attr)
+        root = _receiver_root(recv)
+        if root is not None and root in import_names:
+            return None                     # module/imported receiver -> not a repo edge
+        return ("attr", func.attr)
+    return None
+
+
+def _calls_and_complexity(node, import_names=frozenset()):
+    """Bare-name calls (compat) + receiver-classified call sites + cyclomatic complexity in
+    ONE ast.walk of the subtree."""
+    calls, sites, seen, seen_sites = [], [], set(), set()
     c = 1
     for n in ast.walk(node):
         if isinstance(n, ast.Call):
@@ -48,6 +111,10 @@ def _calls_and_complexity(node):
             if nm and nm not in seen:
                 seen.add(nm)
                 calls.append(nm)
+            cs = _call_site(n.func, import_names)
+            if cs and cs not in seen_sites:
+                seen_sites.add(cs)
+                sites.append(cs)
         elif isinstance(n, (ast.If, ast.For, ast.AsyncFor, ast.While,
                             ast.ExceptHandler, ast.IfExp, ast.Assert)):
             c += 1
@@ -55,7 +122,7 @@ def _calls_and_complexity(node):
             c += len(n.values) - 1
         elif isinstance(n, ast.comprehension):
             c += 1 + len(n.ifs)
-    return calls, c
+    return calls, sites, c
 
 
 def _segment(lines, node):
@@ -130,14 +197,38 @@ def parse_python(rel_path, source):
         return pf
     lines = source.splitlines()
 
+    # Resolve imports to absolute dotted module paths so the graph can match them to repo
+    # files by FULL path (QA #10/#18). Relative imports (from . import x) were dropped
+    # entirely, from-pkg-import-module produced no submodule candidate, and a bare-basename
+    # fallback made `import logging` collide with a repo logging.py.
+    pkg = rel_path[:-3].replace(os.sep, "/").split("/")[:-1] if rel_path.endswith(".py") else []
+    cands = set()
     for n in ast.walk(tree):
         if isinstance(n, ast.Import):
             for a in n.names:
-                pf.imports.append(a.name)
+                cands.add(a.name)                       # absolute: import a.b.c -> "a.b.c"
         elif isinstance(n, ast.ImportFrom):
-            if n.module:
-                pf.imports.append(n.module)
-    pf.imports = sorted(set(pf.imports))
+            level = getattr(n, "level", 0) or 0
+            if level:                                    # relative: resolve against this pkg
+                base = pkg[: len(pkg) - (level - 1)] if len(pkg) >= (level - 1) else []
+            else:
+                base = []
+            mod_parts = base + (n.module.split(".") if n.module else [])
+            if mod_parts:
+                cands.add(".".join(mod_parts))          # the module/package itself
+            for a in n.names:                            # each imported name may be a submodule
+                if a.name != "*":
+                    cands.add(".".join(mod_parts + [a.name]))
+    pf.imports = sorted(c for c in cands if c)
+
+    import_names = set()
+    for _n in ast.walk(tree):
+        if isinstance(_n, ast.Import):
+            for a in _n.names:
+                import_names.add((a.asname or a.name).split(".")[0])
+        elif isinstance(_n, ast.ImportFrom):
+            for a in _n.names:
+                import_names.add(a.asname or a.name)
 
     def add_symbol(node, qualprefix, parent):
         qual = f"{qualprefix}{node.name}"
@@ -149,15 +240,17 @@ def parse_python(rel_path, source):
             kind = "function"
         code, s, e = _segment(lines, node)
         if isinstance(node, ast.ClassDef):
-            calls, cx = [], 0
+            calls, sites, cx = [], [], 0
         else:
-            calls, cx = _calls_and_complexity(node)
+            calls, sites, cx = _calls_and_complexity(node, import_names)
         pf.symbols.append(Symbol(
             id=f"{rel_path}::{qual}", name=node.name, qualname=qual, kind=kind,
             file=rel_path, start_line=s, end_line=e,
             docstring=(ast.get_docstring(node) or ""), code=code,
             calls=calls, parent=parent, complexity=cx,
             bases=_bases(node) if isinstance(node, ast.ClassDef) else [],
+            decorators=[_deco_name(d) for d in getattr(node, "decorator_list", [])],
+            call_sites=sites,
         ))
         if isinstance(node, ast.ClassDef):
             for b in node.body:
@@ -169,6 +262,8 @@ def parse_python(rel_path, source):
     for cls in [x for x in pf.symbols if x.kind == "class"]:
         cls.complexity = sum(m.complexity for m in pf.symbols
                              if m.parent == cls.qualname) or 1
+    pf.exports = _module_all(tree)
+    pf.has_main = _has_main_guard(tree)
     return pf
 
 

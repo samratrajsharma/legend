@@ -3,8 +3,43 @@ from __future__ import annotations
 import ast
 
 
+_ENTRY_NAMES = {"main.py", "manage.py", "wsgi.py", "asgi.py"}
+# decorators that do NOT imply external invocation - everything else (route decorators,
+# task decorators, fixtures, click commands, ...) marks a symbol as framework-reachable.
+_INERT_DECORATORS = {"property", "cached_property", "staticmethod", "classmethod",
+                     "abstractmethod", "abstractproperty", "override", "final",
+                     "dataclass", "total_ordering", "wraps", "contextmanager"}
+
+
 def _is_entry(pf):
-    return "__main__" in (pf.text or "")
+    """A real entry point: a module with an actual `if __name__ == '__main__':` guard, or a
+    conventionally-named launcher. The old test was `"__main__" in pf.text`, which flagged any
+    file that merely MENTIONED the token in a comment, docstring or string literal (QA #6)."""
+    if getattr(pf, "has_main", False):
+        return True
+    base = pf.file.replace("\\", "/").rsplit("/", 1)[-1].lower()
+    return base in _ENTRY_NAMES
+
+
+def _reachable_symbols(idx):
+    """Symbol ids reachable for reasons the static call graph cannot see: decorated with a
+    non-inert decorator (framework registration - @app.get, @task, @fixture, ...), exported
+    via __all__, or a pytest test/fixture. Without this, dead-code flags an app's entire
+    public surface (QA #7: 79% of a FastAPI backend's symbols reported dead)."""
+    reach = set()
+    for p in idx.parsed_files:
+        exports = set(getattr(p, "exports", []) or [])
+        for sym in p.symbols:
+            decos = set(getattr(sym, "decorators", []) or [])
+            if decos - _INERT_DECORATORS:
+                reach.add(sym.id)
+            elif sym.name in exports:
+                reach.add(sym.id)
+            elif sym.name.startswith("test_"):
+                reach.add(sym.id)
+            elif any("fixture" in d for d in decos):
+                reach.add(sym.id)
+    return reach
 
 
 def repo_insights(idx):
@@ -32,15 +67,23 @@ def repo_insights(idx):
                    for d in sorted(syms, key=lambda d: d.get("complexity", 0),
                                    reverse=True)[:8]]
 
+    reach = _reachable_symbols(idx)
+    py_files = {p.file for p in py}
     dead = []
     for nid, n in g.nodes.items():
         if n["type"] != "symbol":
             continue
         d = n["data"]
+        # only judge Python: JS/TS bodies aren't call-resolved yet, so every symbol there
+        # would look uncalled (QA #7 correction c: 90 of 132 false positives were TypeScript)
+        if d["file"] not in py_files:
+            continue
         if d["kind"] == "class" or d["file"] in entry_set:
             continue
         nm = d["name"]
         if nm.startswith("__") and nm.endswith("__"):
+            continue
+        if nid in reach:
             continue
         if not g.callers(nid):
             dead.append({"symbol": d["qualname"], "file": d["file"]})

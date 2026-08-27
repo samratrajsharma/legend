@@ -9,7 +9,7 @@ import textwrap
 import tokenize as pytok
 
 from .index import tokenize
-from .insights import repo_insights
+from .insights import repo_insights, _reachable_symbols
 
 _IDENT = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
 
@@ -48,24 +48,29 @@ def _entry_code_names(idx, entry_files):
 
 # ---------------- dead code (conservative, name-aware) ----------------
 def dead_code(idx):
-    """A function/method with no in-repo callers whose name is not referenced by any
-    entry file (so not invoked from a __main__ block or re-exported)."""
+    """A Python function/method with no in-repo caller that is also not framework-reachable
+    (decorated, exported via __all__, a test/fixture) and not defined in an entry file, and
+    whose name is not invoked from an entry file's code. Static call graph only: dynamic
+    dispatch (getattr/importlib/registries beyond decorators) is not modelled - so treat the
+    result as 'likely unused, verify before deleting', not a proof."""
     g = idx.graph
     entry = set(repo_insights(idx)["entry_files"])
     entry_names = _entry_code_names(idx, entry)
+    reach = _reachable_symbols(idx)
+    py_files = {p.file for p in idx.parsed_files if p.language == "python"}
     out = []
     for nid, n in g.nodes.items():
         if n["type"] != "symbol":
             continue
         d = n["data"]
-        if d["kind"] == "class":
+        if d["file"] not in py_files:          # only judge Python (JS/TS not call-resolved)
+            continue
+        if d["kind"] == "class" or d["file"] in entry:
             continue
         nm = d["name"]
         if nm.startswith("__") and nm.endswith("__"):
             continue
-        if g.callers(nid):
-            continue
-        if nm.lower() in entry_names:
+        if nid in reach or g.callers(nid) or nm.lower() in entry_names:
             continue
         out.append({"symbol": d["qualname"], "file": d["file"]})
     return sorted(out, key=lambda x: x["file"])

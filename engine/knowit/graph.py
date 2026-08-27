@@ -84,7 +84,9 @@ def build_graph(parsed_files):
         if pf.file.endswith(".py"):
             mod_key = pf.file[:-3].replace(os.sep, ".").replace("/", ".")
             module_index[mod_key] = pf.file
-            module_index[mod_key.split(".")[-1]] = pf.file
+            # a package dir maps by its package path too: a/b/__init__.py -> "a.b"
+            if mod_key.endswith(".__init__"):
+                module_index[mod_key[:-len(".__init__")]] = pf.file
         mods = _module_of(pf.file)
         for sym in pf.symbols:
             g.add_node(sym.id, "symbol", {
@@ -123,6 +125,30 @@ def build_graph(parsed_files):
                 return hit                       # exactly one imported match
         return []                                # ambiguous -> unresolved
 
+    def resolve_call(kind, caller_file, caller_class, imports, name):
+        """Dispatch by receiver kind (from Symbol.call_sites, QA #12):
+          self  -> a method of the caller's own class or a resolved base (never repo-wide)
+          attr  -> a same-file candidate only (obj.m() with an unknown receiver: don't guess
+                   across files or on repo-wide-uniqueness - that is the phantom-edge source)
+          bare  -> the scoped resolve() ladder (import/same-file/unambiguous)."""
+        if kind == "self":
+            out = []
+            if caller_class:
+                mid = f"{caller_file}::{caller_class}.{name}"
+                if mid in g.nodes:
+                    out.append(mid)
+                cn = g.get(f"{caller_file}::{caller_class}")
+                if cn:
+                    for base in cn["data"].get("bases", []):
+                        for bt in resolve(caller_file, imports, base, want_class=True):
+                            bmid = f"{bt}.{name}"
+                            if bmid in g.nodes:
+                                out.append(bmid)
+            return out
+        # attr (unknown local receiver) and bare both use the scoped ladder; the phantom
+        # source - imported-module receivers - was already dropped at parse (_call_site).
+        return resolve(caller_file, imports, name)
+
     for pf in parsed_files:
         # expand the caller's imports ONCE per file (was rebuilt per call/base edge)
         imp_expanded = set(pf.imports) | {i.split(".")[-1] for i in pf.imports}
@@ -131,8 +157,11 @@ def build_graph(parsed_files):
                 parent_id = f"{pf.file}::{sym.parent}"
                 if parent_id in g.nodes:
                     g.add_edge(sym.id, parent_id, "method_of")
-            for callee in sym.calls:
-                for target in resolve(pf.file, imp_expanded, callee):
+            sites = getattr(sym, "call_sites", None)
+            if not sites and sym.calls:
+                sites = [("bare", c) for c in sym.calls]   # old-pickle fallback
+            for kind, callee in (sites or []):
+                for target in resolve_call(kind, pf.file, sym.parent, imp_expanded, callee):
                     if target != sym.id:
                         g.add_edge(sym.id, target, "calls")
             for base in sym.bases:
@@ -141,8 +170,10 @@ def build_graph(parsed_files):
                         g.add_edge(sym.id, target, "inherits")
 
     for pf in parsed_files:
-        for imp in pf.imports:
-            dst = module_index.get(imp) or module_index.get(imp.split(".")[-1])
-            if dst and dst != pf.file:
+        seen_imp = set()
+        for imp in pf.imports:                        # already absolute dotted candidates
+            dst = module_index.get(imp)               # FULL-path match only (no basename)
+            if dst and dst != pf.file and dst not in seen_imp:
+                seen_imp.add(dst)
                 g.add_edge(pf.file, dst, "imports")
     return g

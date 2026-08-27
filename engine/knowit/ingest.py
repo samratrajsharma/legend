@@ -10,7 +10,7 @@ import time
 import urllib.parse
 from .models import RepoMeta
 
-SKIP_DIRS = {".git", ".knowit_cache", "__pycache__", "node_modules", ".venv",
+SKIP_DIRS = {".git", ".cache", ".knowit_cache", "__pycache__", "node_modules", ".venv",
              "venv", "env", "ENV", "build", "dist", ".mypy_cache", ".pytest_cache",
              ".ruff_cache", "site-packages", ".ipynb_checkpoints", ".idea", ".vscode"}
 CODE_EXTS = {".py", ".js", ".jsx", ".mjs", ".cjs", ".ts", ".tsx"}
@@ -338,7 +338,7 @@ def repo_meta(path, name=None):
     )
 
 
-def list_files(path, max_files=8000):
+def list_files(path, max_files=20000):
     code, docs = [], []
     root_real = os.path.realpath(path)
 
@@ -364,6 +364,10 @@ def list_files(path, max_files=8000):
             elif ext in DOC_EXTS or ext in CONFIG_EXTS:
                 docs.append((rel, abs_p))
         if len(code) + len(docs) > max_files:
+            import sys as _sys
+            _sys.stderr.write("[knowit] file cap (%d) hit in %s - indexing a partial repo; "
+                              "raise list_files(max_files=) for very large repos\n"
+                              % (max_files, path))
             break
     code.sort()
     docs.sort()
