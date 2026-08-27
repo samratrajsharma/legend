@@ -1,12 +1,45 @@
+# Know Your Code - backend requirements
+# Python 3.10+.  Install:  pip install -r requirements.txt
+#
+# Complete set for the running app (app/backend + the engine it uses). Only the
+# first block is needed just to START the server; everything below powers a specific
+# feature and is imported lazily, so a missing one degrades that feature instead of
+# breaking startup.
+
+# ── Web framework (required to run the backend) ─────────────────────────────
 fastapi==0.115.6
 uvicorn[standard]==0.34.0
 pydantic==2.10.4
 python-dotenv==1.0.1
-# KnowIT engine extras (optional accelerators)
+
+# ── LLM layer - provider-agnostic (OpenAI / Anthropic / Gemini / Groq / Ollama)
+# Powers Ask, per-file and per-function explanations, and tour/narration. Bring
+# your own key; without one the app still indexes and browses, it just can't answer.
 litellm==1.55.4
+
+# ── Vector retrieval (hybrid BM25 + semantic) ───────────────────────────────
+# Ships an on-device MiniLM embedding model, so semantic search works with NO API
+# key. If chromadb is absent the system falls back to BM25 lexical-only search.
 chromadb==0.5.23
-# Media tab: slide-deck (.pptx) export needs python-pptx (engine imports it lazily)
-python-pptx>=0.6.23
-# Report export (lazy-imported in app.py; missing => only the report feature 503s)
+
+# ── Report export: the "Download report" button (.md / .docx / .pdf) ────────
+# Lazy-imported - if missing, only the report feature errors; the rest is fine.
 python-docx>=1.1.0
 reportlab>=4.0.0
+
+# ── Slide-deck export (.pptx), used by the Media generator ──────────────────
+python-pptx>=0.6.23
+
+# ── Optional: spoken audio overview (Media tab). Uncomment to enable. ───────
+# edge-tts>=6.1
+# gTTS>=2.5
+# pydub>=0.25
+# pyttsx3>=2.90
+
+# ── Optional: the standalone Streamlit engine UI (engine/app.py), which is a
+# separate interface from the web app you run via run.ps1. ───────────────────
+# streamlit>=1.36
+# watchdog>=4.0
+# pyvis>=0.3.2
+# PyYAML>=6.0
+# pandas>=2.2
