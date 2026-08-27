@@ -138,9 +138,16 @@ def file_summary(idx, file_rel):
 import re as _re
 from collections import defaultdict as _dd
 
-_ROUTE = _re.compile(r'@(\w+)\.(get|post|put|delete|patch|route)\(\s*["\']([^"\']+)', _re.I)
+# Python decorators: @app.get("/x") / @router.route("/x", methods=[...])
+_PY_ROUTE = _re.compile(r'@(\w+)\.(get|post|put|delete|patch|route)\(\s*["\']([^"\']+)["\']([^)]*)', _re.I)
+# JS/TS method calls (Express/Koa/Fastify/Nest): app.get("/x", ...) - no decorator, needs a string path
+_JS_ROUTE = _re.compile(r'\b(\w+)\.(get|post|put|delete|patch|all|use)\(\s*["\'`]([^"\'`]+)', _re.I)
+_METHODS = _re.compile(r'methods\s*=\s*[\[(]([^\])]*)', _re.I)
+_QUOTED_WORD = _re.compile(r'["\']([A-Za-z]+)["\']')
 _TABLE = _re.compile(r'__tablename__\s*=\s*["\']([^"\']+)')
 _DB_BASES = {"base", "model", "declarativebase", "sqlmodel"}
+_ORM_MARKERS = ("import sqlalchemy", "from sqlalchemy", "django.db", "sqlmodel",
+                "import peewee", "from peewee", "tortoise")
 
 
 def language_breakdown(idx):
@@ -159,26 +166,63 @@ def language_breakdown(idx):
 
 
 def api_map(idx):
+    """HTTP routes for the frameworks we claim to support (QA #11): FastAPI/Flask
+    decorators (with Flask methods= parsed) and Express/Koa/Nest method calls."""
     out = []
     for p in idx.parsed_files:
-        if p.language not in ("python", "javascript", "typescript"):
-            continue
-        for m in _ROUTE.finditer(p.text or ""):
-            verb = m.group(2).upper()
-            out.append({"method": "ANY" if verb == "ROUTE" else verb,
-                        "path": m.group(3), "file": p.file})
-    return out
+        txt = p.text or ""
+        if p.language == "python":
+            for m in _PY_ROUTE.finditer(txt):
+                verb, path, rest = m.group(2).lower(), m.group(3), (m.group(4) or "")
+                if verb == "route":
+                    mm = _METHODS.search(rest)
+                    verbs = [v.upper() for v in _QUOTED_WORD.findall(mm.group(1))] if mm else []
+                    for v in (verbs or ["GET"]):        # Flask defaults to GET
+                        out.append({"method": v, "path": path, "file": p.file})
+                else:
+                    out.append({"method": verb.upper(), "path": path, "file": p.file})
+        elif p.language in ("javascript", "typescript"):
+            for m in _JS_ROUTE.finditer(txt):
+                verb = m.group(2).upper()
+                verb = "ANY" if verb in ("USE", "ALL") else verb
+                out.append({"method": verb, "path": m.group(3), "file": p.file})
+    seen, uniq = set(), []
+    for r in out:
+        k = (r["method"], r["path"], r["file"])
+        if k not in seen:
+            seen.add(k); uniq.append(r)
+    return uniq
 
 
 def db_map(idx):
-    out = []
-    for n in idx.graph.nodes.values():
-        if n["type"] == "symbol" and n["data"]["kind"] == "class":
-            bs = [b.split(".")[-1].lower() for b in n["data"].get("bases", [])]
-            if any(b in _DB_BASES for b in bs):
-                out.append({"model": n["data"]["qualname"], "file": n["data"]["file"],
-                            "table": ""})
+    """ORM models, one row per class with its __tablename__ joined in (QA #11). Tightened
+    so `class LlamaModel(Model)` in an ML repo is not reported as a database model: the
+    file must look like an ORM file or the class must declare Column/mapped_column/db.*."""
+    orm_files = {p.file for p in idx.parsed_files
+                 if any(k in (p.text or "").lower() for k in _ORM_MARKERS)}
+    tables_by_file = {}
     for p in idx.parsed_files:
+        occ = []
         for m in _TABLE.finditer(p.text or ""):
-            out.append({"model": "(table)", "file": p.file, "table": m.group(1)})
+            occ.append(((p.text[:m.start()].count("\n")) + 1, m.group(1)))
+        if occ:
+            tables_by_file[p.file] = occ
+    out = []
+    for p in idx.parsed_files:
+        for s2 in p.symbols:
+            if s2.kind != "class":
+                continue
+            bs = [b.split(".")[-1].lower() for b in (s2.bases or [])]
+            if not any(b in _DB_BASES for b in bs):
+                continue
+            body = s2.code or ""
+            has_cols = ("Column(" in body or "mapped_column(" in body
+                        or "models." in body or "= db." in body)
+            if p.file not in orm_files and not has_cols:
+                continue                                 # a plain class named ...Model - skip
+            table = ""
+            for ln, tv in tables_by_file.get(p.file, []):
+                if s2.start_line <= ln <= s2.end_line:
+                    table = tv; break
+            out.append({"model": s2.qualname, "file": s2.file, "table": table})
     return out
