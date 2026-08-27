@@ -2,7 +2,7 @@
 
 # Know Your Code
 
-**Local-first codebase intelligence.** Point it at any repository or folder and it maps the architecture, explains files, answers questions with your own LLM, and tracks how the code changes over time — all on your machine.
+**Local-first codebase intelligence.** Point it at a repository or folder and it maps the architecture, explains files, answers questions with your own LLM, and tracks how the code changes over time — all on your machine. Analysis is deepest for **Python** today (full AST); JavaScript/TypeScript support is best-effort and other languages are on the roadmap.
 
 ![Python](https://img.shields.io/badge/python-3.10+-3776AB)
 ![React](https://img.shields.io/badge/react-19-149ECA)
@@ -21,7 +21,7 @@ Know Your Code (engine name `knowit`) turns an unfamiliar codebase into somethin
 - **Overview** — files, languages, lines of code, hub files, entry points, most-complex symbols, likely-dead code, and the rendered README at a glance.
 - **Files** — browse the tree with per-file summaries and clickable symbol chips; a per-function explainer shows code plus callers and callees. Markdown files render as formatted markdown.
 - **Insight Graph** — an interactive, pannable architecture map that groups files into areas and draws their dependencies.
-- **API & DB** — auto-detected HTTP routes (FastAPI, Flask, Express, …) and ORM/data models.
+- **API & DB** — auto-detected HTTP routes (FastAPI and Flask) and ORM/data models.
 - **Timeline & Track** — a living, LLM-free record of what changed over time via structural fingerprint diffs, plus on-demand structural diffs between any two commits. Git history is imported merge-aware, so every commit shows its files.
 - **Intel** — tech-debt analysis: dead code, import cycles, complexity hotspots, god files, near-duplicates, and undocumented symbols.
 - **Download report** — export a full analysis of any repo as Markdown, Word (`.docx`), or PDF, from any tab.
