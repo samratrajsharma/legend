@@ -150,8 +150,11 @@ def build_graph(parsed_files):
         return resolve(caller_file, imports, name)
 
     for pf in parsed_files:
-        # expand the caller's imports ONCE per file (was rebuilt per call/base edge)
-        imp_expanded = set(pf.imports) | {i.split(".")[-1] for i in pf.imports}
+        # expand the caller's imports ONCE per file (was rebuilt per call/base edge).
+        # include import_targets so `from losses import focal_loss` still lets a call to
+        # focal_loss() resolve by its imported short name.
+        _imps = list(pf.imports) + list(getattr(pf, "import_targets", []))
+        imp_expanded = set(_imps) | {i.split(".")[-1] for i in _imps}
         for sym in pf.symbols:
             if sym.parent:
                 parent_id = f"{pf.file}::{sym.parent}"
@@ -188,7 +191,10 @@ def build_graph(parsed_files):
     for pf in parsed_files:
         seen_imp = set()
         is_js = pf.language in ("javascript", "typescript")
-        for imp in pf.imports:
+        # module-level imports resolve the file; import_targets add submodule-file candidates
+        # (pkg/submodule.py) for the Python "from pkg import submodule" case.
+        imp_list = list(pf.imports) if is_js else list(pf.imports) + list(getattr(pf, "import_targets", []))
+        for imp in imp_list:
             dst = _resolve_js_import(pf.file, imp) if is_js else module_index.get(imp)
             if dst and dst != pf.file and dst not in seen_imp:
                 seen_imp.add(dst)

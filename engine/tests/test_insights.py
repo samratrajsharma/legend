@@ -65,7 +65,7 @@ def test_api_map_detects_routes(build_repo):
     routes = api_map(repo)
     by_path = {r["path"]: r["method"] for r in routes}
     assert by_path.get("/users") == "GET"
-    assert by_path.get("/health") == "ANY"   # @route with no verb
+    assert by_path.get("/health") == "GET"   # bare @app.route defaults to GET in Flask
 
 
 def test_db_map_detects_models_and_tables(build_repo):

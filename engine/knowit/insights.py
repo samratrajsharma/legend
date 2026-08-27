@@ -216,9 +216,13 @@ def db_map(idx):
             if not any(b in _DB_BASES for b in bs):
                 continue
             body = s2.code or ""
+            # __tablename__ is an unambiguous ORM declaration on its own - accept regardless
+            # of imports. Column/mapped_column/db. are strong too. Only the weak base-name
+            # signal (class ...(Model)) needs an ORM-looking file to avoid ML false positives.
+            has_table = "__tablename__" in body
             has_cols = ("Column(" in body or "mapped_column(" in body
                         or "models." in body or "= db." in body)
-            if p.file not in orm_files and not has_cols:
+            if p.file not in orm_files and not has_cols and not has_table:
                 continue                                 # a plain class named ...Model - skip
             table = ""
             for ln, tv in tables_by_file.get(p.file, []):

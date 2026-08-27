@@ -13,7 +13,10 @@ from .models import RepoMeta
 SKIP_DIRS = {".git", ".cache", ".knowit_cache", "__pycache__", "node_modules", ".venv",
              "venv", "env", "ENV", "build", "dist", ".mypy_cache", ".pytest_cache",
              ".ruff_cache", "site-packages", ".ipynb_checkpoints", ".idea", ".vscode"}
-CODE_EXTS = {".py", ".js", ".jsx", ".mjs", ".cjs", ".ts", ".tsx"}
+CODE_EXTS = {".py", ".js", ".jsx", ".mjs", ".cjs", ".ts", ".tsx",
+             # tree-sitter languages (parsed when tree-sitter is installed, else indexed as text)
+             ".go", ".java", ".rs", ".cs", ".rb", ".php", ".c", ".h", ".cc", ".cpp",
+             ".cxx", ".hpp", ".hh", ".kt", ".kts", ".swift", ".scala"}
 DOC_EXTS = {".md"}
 CONFIG_EXTS = {".yaml", ".yml", ".toml", ".ini", ".cfg"}
 

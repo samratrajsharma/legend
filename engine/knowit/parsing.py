@@ -6,6 +6,14 @@ from .models import ParsedFile, Symbol
 
 JS_EXTS = {".js", ".jsx", ".mjs", ".cjs"}
 TS_EXTS = {".ts", ".tsx"}
+# languages parsed by the optional tree-sitter backend (Python and JS/TS have dedicated
+# parsers above; these need tree-sitter, and degrade to searchable text without it).
+_EXT_LANG = {
+    ".go": "go", ".java": "java", ".rs": "rust", ".cs": "c_sharp", ".rb": "ruby",
+    ".php": "php", ".c": "c", ".h": "c", ".cc": "cpp", ".cpp": "cpp", ".cxx": "cpp",
+    ".hpp": "cpp", ".hh": "cpp", ".kt": "kotlin", ".kts": "kotlin", ".swift": "swift",
+    ".scala": "scala",
+}
 
 
 def _read(abs_path):
@@ -201,12 +209,16 @@ def parse_python(rel_path, source):
     # files by FULL path (QA #10/#18). Relative imports (from . import x) were dropped
     # entirely, from-pkg-import-module produced no submodule candidate, and a bare-basename
     # fallback made `import logging` collide with a repo logging.py.
+    # `imports` is the human-facing module list (what file_summary shows); `import_targets`
+    # holds the extra "from pkg import submodule" candidates the graph needs to match a
+    # submodule *file* (pkg/submodule.py) - those must NOT pollute the display list.
     pkg = rel_path[:-3].replace(os.sep, "/").split("/")[:-1] if rel_path.endswith(".py") else []
-    cands = set()
+    mods = set()        # module-level imports (display + graph resolution)
+    targets = set()     # from-import name candidates (graph file-matching only)
     for n in ast.walk(tree):
         if isinstance(n, ast.Import):
             for a in n.names:
-                cands.add(a.name)                       # absolute: import a.b.c -> "a.b.c"
+                mods.add(a.name)                        # absolute: import a.b.c -> "a.b.c"
         elif isinstance(n, ast.ImportFrom):
             level = getattr(n, "level", 0) or 0
             if level:                                    # relative: resolve against this pkg
@@ -215,11 +227,12 @@ def parse_python(rel_path, source):
                 base = []
             mod_parts = base + (n.module.split(".") if n.module else [])
             if mod_parts:
-                cands.add(".".join(mod_parts))          # the module/package itself
-            for a in n.names:                            # each imported name may be a submodule
+                mods.add(".".join(mod_parts))           # the module/package imported from
+            for a in n.names:                            # each imported name MAY be a submodule
                 if a.name != "*":
-                    cands.add(".".join(mod_parts + [a.name]))
-    pf.imports = sorted(c for c in cands if c)
+                    targets.add(".".join(mod_parts + [a.name]))
+    pf.imports = sorted(m for m in mods if m)
+    pf.import_targets = sorted(t for t in targets if t)
 
     import_names = set()
     for _n in ast.walk(tree):
@@ -507,11 +520,24 @@ def parse_file(rel_path, abs_path):
     ext = os.path.splitext(rel_path)[1].lower()
     src = _read(abs_path)
     if ext == ".py":
-        return parse_python(rel_path, src)
+        return parse_python(rel_path, src)          # stdlib ast - always, most reliable
     if ext in JS_EXTS:
         return parse_js(rel_path, src, "javascript")
     if ext in TS_EXTS:
         return parse_js(rel_path, src, "typescript")
+    # Go/Java/Rust/C#/... : tree-sitter if installed, else index as searchable text so the
+    # files are at least visible (they used never to be enumerated at all - QA #14).
+    lang = _EXT_LANG.get(ext)
+    if lang:
+        try:
+            from . import treesitter_parser as _ts
+            if _ts.available():
+                pf = _ts.ts_parse(rel_path, src, lang)
+                if pf is not None:
+                    return pf
+        except Exception:
+            pass
+        return ParsedFile(file=rel_path, language=lang, text=src, loc=src.count("\n") + 1)
     if ext in (".yaml", ".yml", ".toml", ".ini", ".cfg"):
         return ParsedFile(file=rel_path, language="config", text=src, loc=src.count("\n") + 1)
     lang = "markdown" if ext == ".md" else "other"
