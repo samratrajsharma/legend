@@ -14,6 +14,7 @@ from typing import Any, Optional
 
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.responses import FileResponse, HTMLResponse, StreamingResponse
 from pydantic import BaseModel
 
@@ -35,7 +36,7 @@ from knowit.pipeline import build_index  # type: ignore
 from knowit.retrieval import assemble_context  # type: ignore
 from knowit import (                      # type: ignore
     insights, providers as engine_providers,
-    teach, track, techdebt, engmemory, media, research, portfolio,
+    teach, track, techdebt, engmemory, media, research,
     impact, coverage, config_map, eval_harness, progress as kyc_progress,
 )
 
@@ -62,6 +63,15 @@ except Exception as _cmap_err:
 
 # ── App + CORS ───────────────────────────────────────────────────
 app = FastAPI(title="Know Your Code (testbed)", version="0.2.0")
+# Host allowlist. Binding to 127.0.0.1 does NOT stop DNS rebinding: after the attacker's
+# domain re-resolves to 127.0.0.1, the browser treats http://attacker.tld:8100 as
+# same-origin and CORS never engages. Rejecting any Host header that isn't our own closes
+# that whole class - a rebinding request arrives with Host: attacker.tld and is refused
+# with 400 before any handler runs. (Audit critical #4.)
+app.add_middleware(
+    TrustedHostMiddleware,
+    allowed_hosts=["localhost", "127.0.0.1", "localhost:8100", "127.0.0.1:8100"],
+)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:5273", "http://127.0.0.1:5273"],

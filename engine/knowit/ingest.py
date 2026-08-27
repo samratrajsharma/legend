@@ -101,6 +101,15 @@ def name_from_url(url):
     return n or "repo"
 
 
+def _assert_contained(path, root):
+    """Raise unless `path` resolves inside `root`. The last line of defence against
+    path traversal: anything about to be _rm()'d or cloned into must be provably inside
+    the cache directory."""
+    rp, rr = os.path.realpath(path), os.path.realpath(root)
+    if rp != rr and os.path.commonpath([rp, rr]) != rr:
+        raise RuntimeError("refusing a path outside the cache: %r" % (path,))
+
+
 def _rm(path):
     """Delete a tree even when git has left read-only objects in it.
 
@@ -110,6 +119,10 @@ def _rm(path):
     """
     if not os.path.exists(path):
         return
+    rp = os.path.realpath(path)
+    # never delete a filesystem root or the user's home, whatever a caller passes
+    if rp == os.path.dirname(rp) or rp == os.path.realpath(os.path.expanduser("~")):
+        raise RuntimeError("refusing to delete a root/home path: %r" % (path,))
     def _fix(func, p, _exc):
         try:
             os.chmod(p, stat.S_IWRITE)
@@ -232,24 +245,21 @@ def _hint(err):
     return (err or "git failed without printing a reason")[:400]
 
 
-def _dest_for(repos, url, name):
-    """Pick the folder this url lives in.
+def _dest_for(repos, url):
+    """Destination folder for a clone, keyed on a hash of the canonical URL.
 
-    Keeps the pretty name (repos/<repo>) in the normal case, but if that folder is
-    already a *different* repo with the same basename (owner-a/utils vs owner-b/utils)
-    it falls back to a url-keyed folder instead of silently indexing the wrong code.
+    SECURITY: the folder name is NEVER derived from attacker-controllable URL text.
+    A URL like https://h/a\\..\\..\\Startup used to reach here via name_from_url
+    (which split on '/' only, so a Windows backslash '..' segment survived) and make
+    os.path.join resolve OUTSIDE the cache - a _rm() then deleted arbitrary folders and
+    the clone wrote attacker files there. A sha1 hex digest cannot contain '..', '/' or
+    '\\', so the destination is always inside `repos`. The human-readable name is kept
+    in RepoMeta (see ingest()), not on disk. Hashing also makes the old basename-collision
+    handling unnecessary: distinct repos hash to distinct folders automatically.
     """
-    primary = os.path.join(repos, name)
-    if not os.path.isdir(primary):
-        return primary
-    state, _detail = _probe(primary, url)
-    if state in ("ok", "error"):
-        return primary                      # ours (or ours-but-git-is-sulking): keep it
-    if state == "mismatch":                 # a DIFFERENT repo squats this name
-        key = hashlib.sha1(_canon(url).encode("utf-8")).hexdigest()[:8]
-        return os.path.join(repos, "%s-%s" % (name, key))
-    _rm(primary)                            # 'broken': leftover half-clone, reclaim it
-    return primary
+    dest = os.path.join(repos, hashlib.sha1(_canon(url).encode("utf-8")).hexdigest()[:16])
+    _assert_contained(dest, repos)
+    return dest
 
 
 def clone_or_local(source, data_dir):
@@ -259,7 +269,7 @@ def clone_or_local(source, data_dir):
         url = validate_git_url(normalize_git_url(src))
         repos = os.path.join(data_dir, "repos")
         os.makedirs(repos, exist_ok=True)
-        dest = _dest_for(repos, url, name_from_url(url))
+        dest = _dest_for(repos, url)
 
         if os.path.isdir(dest):
             state, detail = _probe(dest, url)
@@ -330,11 +340,24 @@ def repo_meta(path, name=None):
 
 def list_files(path, max_files=8000):
     code, docs = [], []
+    root_real = os.path.realpath(path)
+
+    def _contained(p):
+        rp = os.path.realpath(p)
+        return rp == root_real or os.path.commonpath([rp, root_real]) == root_real
+
+    # followlinks defaults to False, so os.walk won't DESCEND a symlinked dir - but a
+    # symlinked FILE (evil.py -> /etc/passwd) would still be listed and later read back
+    # to the caller / LLM. Skip any symlink, and any path whose realpath escapes the repo.
     for root, dirs, files in os.walk(path):
-        dirs[:] = [d for d in dirs if d not in SKIP_DIRS]
+        dirs[:] = [d for d in dirs if d not in SKIP_DIRS
+                   and not os.path.islink(os.path.join(root, d))
+                   and _contained(os.path.join(root, d))]
         for f in files:
-            ext = os.path.splitext(f)[1].lower()
             abs_p = os.path.join(root, f)
+            if os.path.islink(abs_p) or not _contained(abs_p):
+                continue
+            ext = os.path.splitext(f)[1].lower()
             rel = os.path.relpath(abs_p, path)
             if ext in CODE_EXTS:
                 code.append((rel, abs_p))

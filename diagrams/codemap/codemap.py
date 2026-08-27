@@ -238,7 +238,8 @@ def render_html(mods, area_edges, depth, title, embed, max_src):
     # escape </ so an embedded source containing "</script>" cannot close the <script> block
     payload = "const DATA=" + json.dumps(data).replace("</", "<\\/") + ";"
     html = HTML_TEMPLATE.replace("/*__DATA__*/", payload)
-    return html.replace("__TITLE__", title).replace("__SUB__", sub), (total, loc, len(area_ids), len(area_edges))
+    _t = (title or "").replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+    return html.replace("__TITLE__", _t).replace("__SUB__", sub), (total, loc, len(area_ids), len(area_edges))
 
 def render_md(mods, area_edges):
     by_area = {}
@@ -315,7 +316,7 @@ const M=Object.fromEntries(areas.map(a=>[a.id,a]));
 const esc=s=>(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 const escA=s=>esc(s).replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 const base=r=>r.split('/').pop();
-document.getElementById('legend').innerHTML=BANDNAME.map((b,i)=>`<span><i class="dot" style="background:${COLORS[i]}"></i>${b}</span>`).join('');
+document.getElementById('legend').innerHTML=BANDNAME.map((b,i)=>`<span><i class="dot" style="background:${COLORS[i]}"></i>${esc(b)}</span>`).join('');
 const NB=BANDNAME.length,W=1480,top=64,bot=812,clamp=(a,v,b)=>Math.max(a,Math.min(b,v));
 const bandsY=[];for(let i=0;i<NB;i++)bandsY.push(NB<2?440:top+i*(bot-top)/(NB-1));
 const maxLines=Math.max(...areas.map(a=>a.lines),1);
@@ -338,10 +339,10 @@ areas.forEach(a=>{const g=document.createElementNS('http://www.w3.org/2000/svg',
 function focus(id){const nbs=new Set([id,...adj[id].out,...adj[id].in]);areas.forEach(a=>nEls[a.id].classList.toggle('dim',!nbs.has(a.id)));
  eEls.forEach(p=>{const hit=p.dataset.s===id||p.dataset.t===id;p.setAttribute('stroke-opacity',hit?'.95':'.03');p.setAttribute('stroke-width',hit?'2.4':'1');p.setAttribute('marker-end',hit?'url(#arrowhi)':'url(#arrow)');p.setAttribute('stroke',hit?'#cfe0ff':C[M[p.dataset.s].band]);});side(id);}
 function blur(){areas.forEach(a=>nEls[a.id].classList.remove('dim'));eEls.forEach(p=>{p.setAttribute('stroke-opacity','.13');p.setAttribute('stroke-width','1.2');p.setAttribute('marker-end','url(#arrow)');p.setAttribute('stroke',C[M[p.dataset.s].band]);});}
-const achip=d=>M[d]?`<span class="pill" style="background:${C[M[d].band]}22;color:${C[M[d].band]};border:1px solid ${C[M[d].band]}55" data-area="${escA(d)}">${M[d].name}</span>`:'';
+const achip=d=>M[d]?`<span class="pill" style="background:${C[M[d].band]}22;color:${C[M[d].band]};border:1px solid ${C[M[d].band]}55" data-area="${escA(d)}">${esc(M[d].name)}</span>`:'';
 function side(id){const a=M[id];document.getElementById('panel').innerHTML=
-  `<div class="tag">${BANDNAME[a.band]}</div><h2>${a.name}</h2><div class="meta">${a.id} · ${a.files} files · ${a.lines.toLocaleString()} lines</div>
-   <p class="hint">${AREADESC[id]||''}</p><h3>Depends on (${adj[id].out.length})</h3>${adj[id].out.map(achip).join('')||'<span class="hint">— leaf</span>'}
+  `<div class="tag">${esc(BANDNAME[a.band])}</div><h2>${esc(a.name)}</h2><div class="meta">${esc(a.id)} · ${a.files} files · ${a.lines.toLocaleString()} lines</div>
+   <p class="hint">${esc(AREADESC[id]||'')}</p><h3>Depends on (${adj[id].out.length})</h3>${adj[id].out.map(achip).join('')||'<span class="hint">— leaf</span>'}
    <h3>Used by (${adj[id].in.length})</h3>${adj[id].in.map(achip).join('')||'<span class="hint">— entry point</span>'}
    <div class="cta">Click the node to open it and read every file inside.</div>`;}
 if(areas.length)side(areas[0].id);
@@ -350,12 +351,12 @@ function shortDoc(F){if(F.doc)return esc(F.doc.split(/\n\s*\n/)[0].replace(/\s+/
  return b.length?'Defines '+b.join(' · ')+'.':F.n+' — '+F.l+' lines.';}
 const ov=document.getElementById('ov');
 function fcard(rel){const F=FI[rel];return `<div class="card" data-file="${escA(rel)}">
-   <span class="ln">${F.l} ln</span><span class="fn">${F.n}</span><div class="x">${shortDoc(F)}</div>
+   <span class="ln">${F.l} ln</span><span class="fn">${esc(F.n)}</span><div class="x">${shortDoc(F)}</div>
    <div class="cnt">${F.c.length} classes · ${F.f.length} functions · imports ${F.deps.length} · used by ${F.used.length} &nbsp;<span class="open">open ▸</span></div></div>`;}
 function openArea(id){const a=M[id],rels=AREAFILES[id]||[];document.getElementById('sheet').innerHTML=
- `<header style="padding:16px 20px"><div><span class="bartag" style="background:${C[a.band]}">${BANDNAME[a.band]}</span>
-   <h2 style="margin:8px 0 0;font-size:19px">${a.name}</h2><div class="meta" style="margin:3px 0 0">${a.id} · ${a.files} files · ${a.lines.toLocaleString()} lines</div>
-   <p class="role">${AREADESC[id]||''}</p></div><div class="x" onclick="closeOv()">&times;</div></header>
+ `<header style="padding:16px 20px"><div><span class="bartag" style="background:${C[a.band]}">${esc(BANDNAME[a.band])}</span>
+   <h2 style="margin:8px 0 0;font-size:19px">${esc(a.name)}</h2><div class="meta" style="margin:3px 0 0">${esc(a.id)} · ${a.files} files · ${a.lines.toLocaleString()} lines</div>
+   <p class="role">${esc(AREADESC[id]||'')}</p></div><div class="x" onclick="closeOv()">&times;</div></header>
   <div class="conns"><div><b>Depends on</b>${adj[id].out.map(achip).join('')||'<span class="none">leaf</span>'}</div><div><b>Used by</b>${adj[id].in.map(achip).join('')||'<span class="none">entry point</span>'}</div></div>
   <div class="filter"><input placeholder="Filter ${rels.length} files…" oninput="filt(this.value)"></div>
   <div class="files" id="filegrid">${rels.map(fcard).join('')}</div>`;ov.classList.add('open');}
@@ -369,16 +370,16 @@ function narrative(F){const d=F.deps.length,u=F.used.length;
  if(u>=5)return `<b>Hub.</b> ${u} modules import it (and it imports ${d}). High blast radius — changes here touch a lot of the system.`;
  if(!d&&!u)return `<b>Standalone.</b> No in-repo imports either way — self-contained (or wired only via dynamic/third-party paths the static scan cannot see).`;
  return `It imports ${d} in-repo module(s) and is used by ${u}. A mid-chain module — depends on what is below it and supports what is above.`;}
-function fchip(rel){return FI[rel]?`<span class="fchip" title="${escA(rel)}" data-file="${escA(rel)}">${base(rel)}</span>`:'';}
+function fchip(rel){return FI[rel]?`<span class="fchip" title="${escA(rel)}" data-file="${escA(rel)}">${esc(base(rel))}</span>`:'';}
 function codeHtml(rel){const s=SRC[rel];if(s===undefined)return `<div class="code"><div class="src none" style="padding:16px">Source not embedded (--no-src, or file exceeded the size cap). Open ${esc(rel)} directly.</div></div>`;
  const lines=s.split('\n');const gut=lines.map((_,i)=>i+1).join('\n');return `<div class="code"><div class="gut">${gut}</div><div class="src">${esc(s)}</div></div>`;}
 function openFile(rel){const F=FI[rel];if(!F)return;
- const cls=F.c.length?`<h3>Classes (${F.c.length})</h3>`+F.c.map(c=>`<div class="member"><div class="mn">class ${c.n}</div>${c.doc?`<div class="md">${esc(c.doc)}</div>`:''}${c.m&&c.m.length?c.m.map(m=>`<span class="meth">${m}()</span>`).join(''):''}</div>`).join(''):'';
- const fns=F.f.length?`<h3>Functions (${F.f.length})</h3>`+F.f.map(fn=>`<div class="member"><div class="mn">${fn.n}${fn.sig||'()'}</div>${fn.doc?`<div class="md">${esc(fn.doc)}</div>`:''}</div>`).join(''):'';
+ const cls=F.c.length?`<h3>Classes (${F.c.length})</h3>`+F.c.map(c=>`<div class="member"><div class="mn">class ${esc(c.n)}</div>${c.doc?`<div class="md">${esc(c.doc)}</div>`:''}${c.m&&c.m.length?c.m.map(m=>`<span class="meth">${esc(m)}()</span>`).join(''):''}</div>`).join(''):'';
+ const fns=F.f.length?`<h3>Functions (${F.f.length})</h3>`+F.f.map(fn=>`<div class="member"><div class="mn">${esc(fn.n)}${esc(fn.sig||'()')}</div>${fn.doc?`<div class="md">${esc(fn.doc)}</div>`:''}</div>`).join(''):'';
  const depc=F.deps.length?F.deps.map(fchip).join(''):'<span class="none">— none in-repo (a leaf)</span>';
  const usec=F.used.length?F.used.map(fchip).join(''):'<span class="none">— none (entry point / not imported)</span>';
  document.getElementById('fwin').innerHTML=`
-  <div class="fh"><span class="bartag" style="background:${C[M[F.area].band]}">${F.area}</span><span class="ffn">${F.n}</span>
+  <div class="fh"><span class="bartag" style="background:${C[M[F.area].band]}">${esc(F.area)}</span><span class="ffn">${esc(F.n)}</span>
     <span class="meta" style="color:var(--mut);font-size:12px">${F.l} lines</span><div class="x" onclick="closeFov()">&times;</div></div>
   <div class="fbody"><div class="fleft">
      <div class="rolebox">${narrative(F)}</div>
