@@ -128,8 +128,8 @@ def test_parse_js_symbols():
     assert names.get("Animal") == "class"
     assert names.get("compute") == "function"
     assert names.get("arrow") == "function"
-    # method bodies without the `function` keyword are not captured
-    assert "speak" not in names
+    # class methods ARE now captured (brace-matched parser, audit #16)
+    assert names.get("speak") == "method"
 
 
 def test_parse_js_imports_include_require():

@@ -169,10 +169,27 @@ def build_graph(parsed_files):
                     if target != sym.id:
                         g.add_edge(sym.id, target, "inherits")
 
+    import posixpath as _pp
+    _JS_EXTS = (".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs")
+    files_norm = {pf.file.replace(os.sep, "/"): pf.file for pf in parsed_files}
+
+    def _resolve_js_import(importer, spec):
+        # only local (relative) specifiers resolve to a repo file; bare specs are npm pkgs
+        if not spec.startswith("."):
+            return None
+        imp = importer.replace(os.sep, "/")
+        base = imp.rsplit("/", 1)[0] if "/" in imp else ""
+        target = _pp.normpath(_pp.join(base, spec))
+        for c in [target] + [target + e for e in _JS_EXTS] +                  [target + "/index" + e for e in _JS_EXTS]:
+            if c in files_norm:
+                return files_norm[c]
+        return None
+
     for pf in parsed_files:
         seen_imp = set()
-        for imp in pf.imports:                        # already absolute dotted candidates
-            dst = module_index.get(imp)               # FULL-path match only (no basename)
+        is_js = pf.language in ("javascript", "typescript")
+        for imp in pf.imports:
+            dst = _resolve_js_import(pf.file, imp) if is_js else module_index.get(imp)
             if dst and dst != pf.file and dst not in seen_imp:
                 seen_imp.add(dst)
                 g.add_edge(pf.file, dst, "imports")
