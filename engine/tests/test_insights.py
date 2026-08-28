@@ -78,3 +78,36 @@ def test_db_map_detects_models_and_tables(build_repo):
     dbm = db_map(repo)
     assert any(m["model"] == "User" for m in dbm)
     assert any(m["table"] == "users" for m in dbm)
+
+
+# ── QA audit: api_map / db_map false positives ──────────────────────────────
+def test_api_map_ignores_http_client_calls(build_repo):
+    # axios.get('/x') is a CLIENT call, not a server route (audit).
+    repo = build_repo({"server.js": (
+        "const express = require('express'); const app = express();\n"
+        "app.get('/users', h);\n"
+        "const axios = require('axios');\n"
+        "axios.get('/api/remote');\n"
+        "axios.post('/api/login', d);\n"
+    )})
+    routes = {(r["method"], r["path"]) for r in api_map(repo)}
+    assert ("GET", "/users") in routes
+    assert ("GET", "/api/remote") not in routes
+    assert ("POST", "/api/login") not in routes
+
+
+def test_api_map_ignores_non_web_decorators(build_repo):
+    # @cache.get("k") is a caching decorator, not a route.
+    repo = build_repo({"svc.py": (
+        "import flask\napp = flask.Flask(__name__)\n"
+        "@cache.get('user_profile')\ndef cached():\n    pass\n"
+        "@app.get('/real')\ndef real():\n    return []\n"
+    )})
+    paths = {r["path"] for r in api_map(repo)}
+    assert "/real" in paths and "user_profile" not in paths
+
+
+def test_db_map_ignores_markers_in_comments(build_repo):
+    # A `mapped_column()` mentioned in a comment must not make a plain class an ORM model.
+    repo = build_repo({"m.py": "class Note(Base):\n    # we used mapped_column() once\n    pass\n"})
+    assert not any(m["model"] == "Note" for m in db_map(repo))

@@ -185,3 +185,9 @@ def test_read_missing_file_is_graceful():
     pf = parse_file("nope.py", "/path/does/not/exist.py")
     assert pf.language == "python"
     assert pf.symbols == []
+
+
+def test_js_loc_matches_line_count():
+    # loc must be count('\n')+1 (Python's convention), not len(splitlines())+1 (audit off-by-one).
+    pf = parse_js("x.js", "const a=1;\nconst b=2;\nconst c=3;", "javascript")
+    assert pf.loc == 3
