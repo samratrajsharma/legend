@@ -30,6 +30,14 @@ def main(argv=None) -> int:
     if _argv and _argv[0] == "mcp":
         from legend.mcp_server import main as _mcp_main
         return _mcp_main(_argv[1:])
+    # `legend context [...]` -> emit derived agent context (AGENTS.md) from the code graph
+    if _argv and _argv[0] == "context":
+        from legend.context import main as _ctx_main
+        return _ctx_main(_argv[1:])
+    # `legend check [...]` -> CI gate: exit non-zero on a structural regression vs a base ref
+    if _argv and _argv[0] == "check":
+        from legend.check import main as _chk_main
+        return _chk_main(_argv[1:])
 
     p = argparse.ArgumentParser(
         prog="legend",

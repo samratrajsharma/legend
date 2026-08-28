@@ -10,7 +10,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "legend-lens"
-version = "0.1.1"
+version = "0.1.2"
 description = "Legend — point it at a codebase and explore it in your browser (local-first code intelligence)."
 readme = "README.md"
 requires-python = ">=3.10"

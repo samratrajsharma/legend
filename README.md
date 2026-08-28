@@ -193,6 +193,39 @@ Tools exposed (all read-only, one deterministic call each):
 
 Drop [`skills/legend/SKILL.md`](skills/legend/SKILL.md) into your agent so it knows *when* to call them (e.g. `blast_radius` before editing a function, `cycles` before merging).
 
+**Derived context file.** Generate an always-fresh `AGENTS.md` straight from the code graph — the real route table, module boundaries, entry points, hub files, public surface, and constraints (import cycles, complexity hotspots). These are the non-inferable specifics a hand-written context file gets wrong or lets go stale:
+
+```bash
+legend context --write AGENTS.md      # or: legend context   (prints to stdout)
+```
+
+It's *derived* context, not written context — regenerate it on each commit (e.g. a pre-commit hook) so it can never drift from the code.
+
+**CI regression gate.** Fail a pull request when a change introduces a *structural* regression — a new import cycle, a removed public symbol, or a complexity spike. Run it at your repo's git root:
+
+```bash
+legend check --base main        # exit 0 = clean, 1 = regression, 2 = error
+legend check --base origin/main --strict   # also fail on complexity spikes
+```
+
+Drop it into CI (needs full history so the base ref is present):
+
+```yaml
+# .github/workflows/legend-check.yml
+name: legend check
+on: pull_request
+jobs:
+  structure:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - run: pipx install legend-lens
+      - run: legend check --base "origin/${{ github.base_ref }}"
+```
+
 ## Enabling AI answers (bring your own model)
 
 Indexing, structure, files, search, the graph, metrics, and tracking **all work offline with no model**. Only the **Ask** tab and per-function explanations call an LLM — and you bring your own.
