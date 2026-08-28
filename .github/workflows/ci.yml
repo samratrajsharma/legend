@@ -44,3 +44,20 @@ jobs:
       - name: Run backend API test suite
         working-directory: app/backend
         run: python -m pytest -q
+
+  frontend-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: app/frontend/package-lock.json
+      - name: Install frontend dependencies
+        working-directory: app/frontend
+        run: npm ci
+      - name: Type-check + build the frontend
+        working-directory: app/frontend
+        run: npm run build
