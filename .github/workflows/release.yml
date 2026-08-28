@@ -1,11 +1,19 @@
 name: Release to PyPI
 
-# Tag a release to publish it:  git tag v0.1.1 && git push origin v0.1.1
-# The tag's version (minus the leading "v") must match `project.version` in pyproject.toml.
+# Manual by default (Actions tab → "Release to PyPI" → Run workflow) — publishing currently
+# happens via `twine upload` with an API token, so the automatic tag trigger is disabled to
+# avoid failing runs.
+#
+# To switch to automatic, token-free publishing on every version tag:
+#   1) On PyPI: project legend-lens → Publishing → add a Trusted Publisher
+#      (owner: samratrajsharma, repo: legend, workflow: release.yml, environment: pypi).
+#   2) Uncomment the `push: tags` trigger below.
+#   3) Stop running `twine` by hand — just bump the version, commit, and `git tag vX.Y.Z`.
 on:
-  push:
-    tags:
-      - "v*"
+  workflow_dispatch:
+  # push:
+  #   tags:
+  #     - "v*"
 
 permissions:
   contents: read
@@ -62,3 +70,5 @@ jobs:
 
       - name: Publish to PyPI (Trusted Publishing)
         uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          skip-existing: true   # don't fail if that version was already uploaded (e.g. via twine)
