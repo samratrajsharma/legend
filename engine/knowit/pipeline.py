@@ -49,20 +49,24 @@ class RepoIndex:
                              self.chunks_by_node, k=self.config.top_k,
                              expand=self.config.graph_expand)
 
-    def ask(self, query):
+    def ask(self, query, model=None, llm_kwargs=None):
+        # model/llm_kwargs are per-request overrides passed by value - NOT written back to
+        # self.config, so concurrent asks with different models can't cross-contaminate (#49).
+        m = model or self.config.llm_model
+        kw = llm_kwargs if llm_kwargs is not None else self.config.llm_kwargs
         retrieved = self.search(query)
-        context = assemble_context(retrieved)
-        answer, used = synthesize(query, context, self.config.llm_model,
-                                  self.config.llm_kwargs)
+        context = assemble_context(retrieved, model=m)
+        answer, used = synthesize(query, context, m, kw)
         return {"question": query, "answer": answer, "used_llm": used,
                 "retrieved": retrieved, "context": context}
 
-    def ask_stream(self, query):
+    def ask_stream(self, query, model=None, llm_kwargs=None):
         """Streaming variant of ask(): returns (retrieved, context, token_generator)."""
+        m = model or self.config.llm_model
+        kw = llm_kwargs if llm_kwargs is not None else self.config.llm_kwargs
         retrieved = self.search(query)
-        context = assemble_context(retrieved)
-        tokens = synthesize_stream(query, context, self.config.llm_model,
-                                   self.config.llm_kwargs)
+        context = assemble_context(retrieved, model=m)
+        tokens = synthesize_stream(query, context, m, kw)
         return retrieved, context, tokens
 
 
@@ -93,13 +97,13 @@ def _cache_file(data_dir, meta, sig):
     return os.path.join(d, f"{safe}_{sig}.pkl")
 
 
-def _build_retrievers(chunks, backend, data_dir, sig):
+def _build_retrievers(chunks, backend, data_dir, sig, namespace="default"):
     lexical = BM25Retriever()
     lexical.index(chunks)
     dense = None
     if backend in ("auto", "hybrid", "chroma"):
         try:
-            dense = ChromaRetriever(data_dir, sig)
+            dense = ChromaRetriever(data_dir, sig, namespace)
             dense.index(chunks)
         except Exception:
             if backend == "chroma":
@@ -165,7 +169,8 @@ def build_index(source, config=CONFIG, progress=None, use_cache=None, register=T
                 pass
 
     log("Building retrievers ...")
-    lexical, dense = _build_retrievers(chunks, config.embed_backend, config.data_dir, sig)
+    lexical, dense = _build_retrievers(chunks, config.embed_backend, config.data_dir, sig,
+                                       namespace=meta.name or "repo")
     if register:
         record_repo(config.data_dir, source, meta)
     log("Done.")

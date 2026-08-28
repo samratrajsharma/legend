@@ -7,6 +7,7 @@ import keyword
 import re
 import textwrap
 import tokenize as pytok
+from collections import defaultdict
 
 from .index import tokenize
 from .insights import repo_insights, _reachable_symbols
@@ -127,7 +128,28 @@ def _shingles(tokens, k=4):
     return {tuple(tokens[i:i + k]) for i in range(len(tokens) - k + 1)}
 
 
-def duplicate_pairs(idx, min_tokens=15, threshold=0.75, max_pairs=50):
+def duplicate_pairs(idx, min_tokens=15, threshold=0.75, max_pairs=50, _cand_budget=2_000_000):
+    """Near-duplicate function pairs by Jaccard similarity of 4-gram shingles.
+
+    Previously O(n^2): every function compared to every other, recomputed on every Intel
+    load and report export (#22). Two changes:
+
+      * Memoised on idx.memo, so repeated calls (Intel load, then report export) are free.
+      * Candidates come from an inverted shingle->functions index, so only functions that
+        share at least one shingle are ever compared. This is EXACT - a pair sharing zero
+        shingles has Jaccard 0 and can't reach the threshold - and on real repos most pairs
+        share nothing, so the candidate set is tiny. A size-ratio pre-filter (also exact:
+        Jaccard >= t implies min/max shingle-count ratio >= t) skips the rest cheaply.
+
+    No shingle bucket is dropped, so a large copy-paste cluster (whose members' shingles are
+    all shared cluster-wide) is still detected. `_cand_budget` caps distinct candidate pairs
+    only to bound memory on a pathological all-identical corpus; it is far above what any
+    realistic repo reaches, and the result is capped to max_pairs anyway."""
+    memo = getattr(idx, "memo", None)
+    mkey = ("duplicate_pairs", min_tokens, threshold, max_pairs)
+    if memo is not None and mkey in memo:
+        return memo[mkey]
+
     code = _code_by_id(idx)
     lang = {p.file: p.language for p in idx.parsed_files}
     sh = {}
@@ -139,19 +161,62 @@ def duplicate_pairs(idx, min_tokens=15, threshold=0.75, max_pairs=50):
         if not toks or len(toks) < min_tokens:
             continue
         sh[nid] = (d, _shingles(toks, 4))
+
     ids = list(sh)
-    out = []
-    for i in range(len(ids)):
+    n = len(ids)
+    pos = {nid: i for i, nid in enumerate(ids)}       # nid -> int index (compact pair keys)
+    posting = defaultdict(list)                        # shingle -> [int index]
+    for nid, (_d, s) in sh.items():
+        ii = pos[nid]
+        for shingle in s:
+            posting[shingle].append(ii)
+
+    seen = set()                                       # encoded i*n+j, dedups shared shingles
+    pairs = []
+    stop = False
+    for bucket in posting.values():
+        if len(bucket) < 2:
+            continue
+        for a in range(len(bucket)):
+            ia = bucket[a]
+            for b in range(a + 1, len(bucket)):
+                ib = bucket[b]
+                i, j = (ia, ib) if ia < ib else (ib, ia)
+                key = i * n + j
+                if key in seen:
+                    continue
+                seen.add(key)
+                pairs.append((i, j))
+                if len(seen) >= _cand_budget:
+                    stop = True
+                    break
+            if stop:
+                break
+        if stop:
+            break
+
+    scored = []
+    for i, j in pairs:
         da, sa = sh[ids[i]]
-        for j in range(i + 1, len(ids)):
-            db, sb = sh[ids[j]]
-            uni = len(sa | sb)
-            jac = len(sa & sb) / uni if uni else 0.0
-            if jac >= threshold:
-                out.append({"a": f"{da['qualname']} ({da['file']})",
-                            "b": f"{db['qualname']} ({db['file']})",
-                            "similarity": round(jac, 2)})
-    return sorted(out, key=lambda x: -x["similarity"])[:max_pairs]
+        db, sb = sh[ids[j]]
+        la, lb = len(sa), len(sb)
+        if min(la, lb) < threshold * max(la, lb):      # exact prune: can't reach threshold
+            continue
+        inter = len(sa & sb)
+        uni = la + lb - inter
+        jac = inter / uni if uni else 0.0
+        if jac >= threshold:
+            scored.append((i, j, round(jac, 2), da, db))
+    # Sort by descending similarity, then by (i, j) - the function order the old all-pairs
+    # loop used - so that when more than max_pairs pairs tie at the same similarity, the same
+    # top slice is returned as before (deterministic, matches the pre-optimisation output).
+    scored.sort(key=lambda x: (-x[2], x[0], x[1]))
+    out = [{"a": f"{da['qualname']} ({da['file']})",
+            "b": f"{db['qualname']} ({db['file']})", "similarity": jac}
+           for i, j, jac, da, db in scored[:max_pairs]]
+    if memo is not None:
+        memo[mkey] = out
+    return out
 
 
 # ---------------- import cycles ----------------

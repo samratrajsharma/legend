@@ -5,6 +5,36 @@ const api = axios.create({
   timeout: 600_000,
 });
 
+// ── backend reachability signal ─────────────────────────────────
+// Distinguish "the server answered (even with a 4xx/5xx)" from "the server is
+// unreachable" so the UI can show a real backend-down banner instead of a fake
+// empty state (QA #39). Any completed response marks the backend up; a request
+// that never got a response (network error / connection refused) marks it down.
+let backendDown = false;
+const backendSubs = new Set<(down: boolean) => void>();
+function setBackendDown(down: boolean) {
+  if (down === backendDown) return;
+  backendDown = down;
+  backendSubs.forEach(cb => cb(down));
+}
+export function onBackendStatus(cb: (down: boolean) => void): () => void {
+  backendSubs.add(cb);
+  cb(backendDown);                       // deliver the current state immediately
+  return () => { backendSubs.delete(cb); };
+}
+export const isBackendDown = () => backendDown;
+
+api.interceptors.response.use(
+  res => { setBackendDown(false); return res; },
+  err => {
+    // No `err.response` => the request never reached a responding server. Ignore
+    // client-side cancellations (they aren't a backend outage).
+    if (axios.isCancel?.(err) || err?.code === 'ERR_CANCELED') return Promise.reject(err);
+    setBackendDown(!err?.response);
+    return Promise.reject(err);
+  },
+);
+
 export default api;
 
 // ── Types ───────────────────────────────────────────────────────

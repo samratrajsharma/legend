@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { AskSource } from '../../api/client';
 import './Ask.css';
@@ -27,10 +27,19 @@ export default function Ask() {
   const [sources, setSources] = useState<AskSource[]>([]);
   const [needs, setNeeds] = useState<string | null>(null);
   const [done, setDone] = useState(false);
+  const abortRef = useRef<AbortController | null>(null);
+
+  // Cancel any in-flight stream when the component unmounts — navigating to another tab or
+  // switching repos otherwise leaves the fetch reader running and fires setState after
+  // unmount (React warning + wasted backend work) (QA #36).
+  useEffect(() => () => abortRef.current?.abort(), []);
 
   const ask = async (override?: string) => {
     const question = (override ?? q).trim();
     if (!repoId || !question || streaming) return;
+    abortRef.current?.abort();                 // supersede any prior stream
+    const ac = new AbortController();
+    abortRef.current = ac;
     setQ(question); setAsked(true);
     setStreaming(true); setError(null); setAnswer(''); setSources([]); setNeeds(null); setDone(false);
     try {
@@ -38,6 +47,7 @@ export default function Ask() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ question }),
+        signal: ac.signal,
       });
       if (!resp.ok || !resp.body) {
         let detail = 'Ask failed';
@@ -72,9 +82,13 @@ export default function Ask() {
         }
       }
     } catch (e: any) {
+      if (e?.name === 'AbortError') return;   // intentional cancel (navigation) — not an error
       setError(e?.message || 'Ask failed');
     } finally {
-      setStreaming(false);
+      if (abortRef.current === ac) {
+        setStreaming(false);
+        abortRef.current = null;
+      }
     }
   };
 

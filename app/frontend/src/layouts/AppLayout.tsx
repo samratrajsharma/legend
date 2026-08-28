@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { NavLink, Outlet, useParams, useNavigate, Link } from 'react-router-dom';
-import { kycApi, RepoListItem } from '../api/client';
+import { kycApi, RepoListItem, onBackendStatus } from '../api/client';
+import ErrorBoundary from '../components/ErrorBoundary/ErrorBoundary';
 import './AppLayout.css';
 
 const NAV_TABS = [
@@ -71,6 +72,7 @@ function ReportButton({ repoId }: { repoId: string }) {
 export default function AppLayout() {
   const [repos, setRepos] = useState<RepoListItem[]>([]);
   const [llm, setLlm] = useState<{ configured: boolean; model: string | null } | null>(null);
+  const [backendDown, setBackendDown] = useState(false);
   const { repoId } = useParams<{ repoId: string }>();
   const navigate = useNavigate();
 
@@ -78,6 +80,10 @@ export default function AppLayout() {
     kycApi.listRepos().then(r => setRepos(r.data)).catch(() => {});
     kycApi.llmStatus().then(r => setLlm(r.data)).catch(() => {});
   }, [repoId]);
+
+  // reflect real backend reachability (set by the axios interceptor) so a downed
+  // server shows a banner instead of an empty "no repos" state (QA #39).
+  useEffect(() => onBackendStatus(setBackendDown), []);
 
   const currentRepo = repos.find(r => r.repo_id === repoId);
 
@@ -157,13 +163,23 @@ export default function AppLayout() {
       </aside>
 
       <main className="main">
+        {backendDown && (
+          <div className="toast toast--err" role="alert" style={{ margin: '0 0 16px' }}>
+            <strong>Can’t reach the backend.</strong> The API server isn’t responding — start it
+            (or check it hasn’t crashed), then retry. Data shown may be stale.
+          </div>
+        )}
         {repoId && currentRepo && (
           <div className="topbar">
             <span className="topbar__repo" title={currentRepo.source}>{currentRepo.name}</span>
             <ReportButton repoId={repoId} />
           </div>
         )}
-        <Outlet />
+        {/* Key by repo so switching repos remounts the page — resetting stale selection
+            and letting each page's cleanup cancel its own in-flight work (QA #34/#35). */}
+        <ErrorBoundary resetKey={repoId ?? 'home'}>
+          <Outlet key={repoId ?? 'home'} />
+        </ErrorBoundary>
       </main>
     </div>
   );

@@ -192,3 +192,27 @@ input, select, textarea { font-family: inherit; }
 }
 .toast--ok { background: rgba(30, 215, 96, 0.10); color: #1ED760; border-color: rgba(30, 215, 96, 0.30); }
 .toast--err { background: rgba(239, 68, 68, 0.12); color: #fca5a5; border-color: rgba(239, 68, 68, 0.38); }
+
+/* ── Keyboard focus visibility (QA #40) ──────────────────────────
+   The global `button { outline: none }` above removed focus rings for everyone,
+   including keyboard users. Restore a clear ring for keyboard navigation only
+   (:focus-visible), so mouse clicks stay ring-free but Tab/arrow users can see
+   where they are. Covers buttons, links, inputs, and any element we make
+   focusable with tabindex (e.g. the Insight Graph nodes). */
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+summary:focus-visible,
+[tabindex]:focus-visible {
+  outline: 2px solid var(--kyc-accent);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+/* SVG nodes take a stroke-based ring instead of a CSS outline */
+[tabindex].diag__node:focus-visible { outline: none; }
+[tabindex].diag__node:focus-visible rect {
+  stroke: var(--kyc-accent);
+  stroke-width: 2.5;
+}

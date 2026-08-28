@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { kycApi, FunctionExplainResponse } from '../../api/client';
 import './Files.css';
@@ -181,11 +181,38 @@ export default function Files() {
       .finally(() => setFnLoading(false));
   };
   const closeFn = () => { setFnOpen(null); setFnData(null); setFnError(null); };
+  const fnPanelRef = useRef<HTMLDivElement>(null);
+  const fnReturnFocus = useRef<HTMLElement | null>(null);
+  // Modal a11y (QA #41): trap Tab within the dialog, close on Esc, and restore focus to
+  // whatever opened it when it closes, so keyboard users aren't dropped back to the top.
   useEffect(() => {
     if (!fnOpen) return;
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') closeFn(); };
+    fnReturnFocus.current = document.activeElement as HTMLElement | null;
+    const panel = fnPanelRef.current;
+    const focusables = () => Array.from(
+      panel?.querySelectorAll<HTMLElement>(
+        'a[href], button:not([disabled]), input, textarea, [tabindex]:not([tabindex="-1"])',
+      ) ?? [],
+    ).filter(el => el.offsetParent !== null);
+    (focusables()[0] ?? panel)?.focus();
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') { closeFn(); return; }
+      if (e.key !== 'Tab') return;
+      const els = focusables();
+      if (els.length === 0) { e.preventDefault(); return; }
+      const first = els[0], last = els[els.length - 1];
+      const active = document.activeElement as HTMLElement | null;
+      if (e.shiftKey && (active === first || !panel?.contains(active))) {
+        e.preventDefault(); last.focus();
+      } else if (!e.shiftKey && active === last) {
+        e.preventDefault(); first.focus();
+      }
+    };
     window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      fnReturnFocus.current?.focus?.();          // restore focus on close
+    };
   }, [fnOpen]);
 
   return (
@@ -281,7 +308,15 @@ export default function Files() {
 
       {fnOpen && (
         <div className="fnpanel__overlay" onClick={closeFn}>
-          <div className="fnpanel card" onClick={e => e.stopPropagation()}>
+          <div
+            className="fnpanel card"
+            onClick={e => e.stopPropagation()}
+            ref={fnPanelRef}
+            role="dialog"
+            aria-modal="true"
+            aria-label={`Function ${fnData?.name || fnOpen.symbol}`}
+            tabIndex={-1}
+          >
             <div className="card-header fnpanel__head">
               <div>
                 <h3>
