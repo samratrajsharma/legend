@@ -26,6 +26,10 @@ build/
 .cache/
 .legend_cache/
 .knowit_cache/
+
+# Google Drive sync scratch files (this folder is inside a Drive-synced path)
+.tmp.driveupload/
+.tmp.drivedownload/
 *.log
 
 # ───────────── Secrets & local env ─────────────

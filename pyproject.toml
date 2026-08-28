@@ -1,4 +1,6 @@
-# Self-contained Legend app — this is the wheel published for `pip install legend` / `uvx legend`.
+# Self-contained Legend app — the wheel published for `pip install legend-lens` / `uvx legend-lens`.
+# (PyPI prohibits the bare name `legend`, so the distribution is `legend-lens`; the installed
+#  command is still `legend`. Import packages stay `legend` / `legend_app` / `codemap`.)
 # It bundles the engine (`legend`), the FastAPI web app (`legend_app`), the codemap tool, and the
 # pre-built SPA (app/backend/web). Build the SPA first:  python scripts/build.py
 # (engine/pyproject.toml still exists for an engine-only `pip install ./engine` dev install.)
@@ -7,7 +9,7 @@ requires = ["setuptools>=64", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "legend"
+name = "legend-lens"
 version = "0.1.0"
 description = "Legend — point it at a codebase and explore it in your browser (local-first code intelligence)."
 readme = "README.md"
@@ -42,8 +44,10 @@ all = [
     "python-docx>=1.1.0", "reportlab>=4.0.0", "python-pptx>=0.6.23",
 ]
 
+# `legend` is the short command; `legend-lens` matches the PyPI name so `uvx legend-lens` works bare.
 [project.scripts]
 legend = "legend_app.cli:main"
+legend-lens = "legend_app.cli:main"
 
 [project.urls]
 Homepage = "https://github.com/samratrajsharma/legend"

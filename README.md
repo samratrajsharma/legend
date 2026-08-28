@@ -43,21 +43,23 @@ Indexing runs in six stages: **ingest/clone → parse (AST for Python, regex for
 
 Legend ships as a single self-contained command that starts the app, indexes a repo, and opens your browser — no API key, config, or account needed. Structure, files, graph, search, and metrics all work offline; only the AI "Ask" answers need a model you configure later.
 
+The PyPI package is **`legend-lens`** (PyPI reserves the bare name `legend`); the command it installs is `legend`.
+
 ```bash
-# zero-install: clone + index + open, in one command (once published to PyPI)
-uvx legend https://github.com/some/user/repo
-uvx legend .                      # index the current folder
+# zero-install: clone + index + open, in one command
+uvx legend-lens https://github.com/some/user/repo
+uvx legend-lens .                 # index the current folder
 ```
 
 Or install it into your environment:
 
 ```bash
-pipx install legend               # isolated, always-available `legend` command
-pip install legend                # or into the current venv
+pipx install legend-lens          # isolated; installs the `legend` command
+pip install legend-lens           # or into the current venv
 legend .                          # then point it at any repo or folder
 ```
 
-`legend --help` covers the flags (`--port`, `--host`, `--data-dir`, `--no-open`). Optional extras add heavier features on top of the offline core: `pip install "legend[semantic]"` (on-device semantic search), `[llm]` (AI answers), `[treesitter]` (10+ languages), `[export]` (`.docx`/`.pdf` reports), or `[all]`.
+`legend --help` covers the flags (`--port`, `--host`, `--data-dir`, `--no-open`). Optional extras add heavier features on top of the offline core: `pip install "legend-lens[semantic]"` (on-device semantic search), `[llm]` (AI answers), `[treesitter]` (10+ languages), `[export]` (`.docx`/`.pdf` reports), or `[all]`.
 
 > **Building the wheel locally** (until it's on PyPI): the frontend is bundled into the package, so build it once first, then install.
 > ```bash

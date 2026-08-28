@@ -1,0 +1,64 @@
+name: Release to PyPI
+
+# Tag a release to publish it:  git tag v0.1.1 && git push origin v0.1.1
+# The tag's version (minus the leading "v") must match `project.version` in pyproject.toml.
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/project/legend-lens/
+    permissions:
+      id-token: write   # required for PyPI Trusted Publishing (OIDC) — no API token stored
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Tag must match pyproject version
+        run: |
+          python - <<'PY'
+          import os, sys, tomllib
+          tag = os.environ["GITHUB_REF_NAME"].lstrip("v")
+          ver = tomllib.load(open("pyproject.toml", "rb"))["project"]["version"]
+          print(f"tag={tag}  pyproject={ver}")
+          if tag != ver:
+              sys.exit(f"ERROR: tag '{tag}' != pyproject version '{ver}'. Bump version in pyproject.toml before tagging.")
+          PY
+
+      - name: Build the frontend bundle + sdist/wheel
+        run: |
+          python -m pip install --upgrade build
+          python scripts/build.py
+          python -m build
+
+      - name: Verify the wheel actually contains the UI bundle
+        run: |
+          python - <<'PY'
+          import glob, sys, zipfile
+          whl = glob.glob("dist/*.whl")[0]
+          names = zipfile.ZipFile(whl).namelist()
+          assets = [n for n in names if n.startswith("legend_app/web/assets/")]
+          print("wheel:", whl)
+          print("bundled assets:", assets)
+          if not assets:
+              sys.exit("ERROR: wheel has no legend_app/web/assets/* — the UI bundle is missing, refusing to publish")
+          PY
+
+      - name: Publish to PyPI (Trusted Publishing)
+        uses: pypa/gh-action-pypi-publish@release/v1
