@@ -349,6 +349,16 @@ function AreaMindmap({ data, onAreaClick }: { data: CodemapData; onAreaClick: (i
               onMouseLeave={() => setHoverId(null)}
               onClick={() => onAreaClick(a.id)}
               style={{ cursor: 'pointer' }}
+              // Keyboard access for the Insight Graph (QA #42): each area is a focusable
+              // button; Tab moves between areas, Enter/Space drills in, focus mirrors hover.
+              tabIndex={0}
+              role="button"
+              aria-label={`${a.id}: ${a.files} files, ${a.lines.toLocaleString()} lines. Open area.`}
+              onFocus={() => setHoverId(a.id)}
+              onBlur={() => setHoverId(null)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onAreaClick(a.id); }
+              }}
             >
               <title>{a.id}{'\n'}{a.files} files · {a.lines.toLocaleString()} lines</title>
               <rect

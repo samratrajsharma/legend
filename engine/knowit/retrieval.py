@@ -49,7 +49,73 @@ def hybrid_search(query, lexical, dense, graph, chunks_by_node, k=6, expand=1):
     return ranked[: k + (k // 2 if expand else 0)]
 
 
-def assemble_context(retrieved, max_blocks=8, max_chars=6000):
+def _count_tokens(text, model):
+    """Real token count for `model` when litellm can provide one; a ~4-chars/token
+    estimate otherwise (litellm absent, or an unknown/local model)."""
+    try:
+        import litellm
+        return int(litellm.token_counter(model=model or "gpt-3.5-turbo", text=text))
+    except Exception:
+        return max(1, len(text) // 4)
+
+
+def _context_token_budget(model):
+    """Half the model's context window, floored, leaving room for the system prompt,
+    the question and the generated answer. Falls back to a conservative 8k window."""
+    win = None
+    try:
+        import litellm
+        win = litellm.get_max_tokens(model)
+    except Exception:
+        win = None
+    if not win or win <= 0:
+        win = 8192
+    return max(512, int(win * 0.5))
+
+
+def _truncate_to_tokens(text, token_budget, model):
+    """Largest character prefix of `text` whose token count is within `token_budget`."""
+    if token_budget <= 0:
+        return ""
+    if _count_tokens(text, model) <= token_budget:
+        return text
+    lo, hi = 0, len(text)
+    while lo < hi:                                   # binary search on prefix length
+        mid = (lo + hi + 1) // 2
+        if _count_tokens(text[:mid], model) <= token_budget:
+            lo = mid
+        else:
+            hi = mid - 1
+    return text[:lo]
+
+
+def assemble_context(retrieved, max_blocks=8, max_chars=6000, model=None, max_tokens=None):
+    """Pack retrieved chunks into a context string within a budget.
+
+    When a `model` (or explicit `max_tokens`) is given, the budget is measured in real
+    tokens against that model's context window (QA #44) instead of the old fixed 6,000
+    characters. With neither, it falls back to the character budget so existing callers
+    and tests are unaffected."""
+    token_mode = bool(model or max_tokens)
+    if token_mode:
+        budget = max_tokens or _context_token_budget(model)
+        mark = "\n... (truncated)"
+        blocks, total = [], 0
+        for r in retrieved[:max_blocks]:
+            c = r.chunk
+            block = f"[{c.file}:{c.start_line}-{c.end_line} :: {c.name}]\n{c.text}"
+            bl = _count_tokens(block, model)
+            if total + bl > budget:
+                if not blocks:                      # single oversized top chunk: keep a head
+                    head = _truncate_to_tokens(block, budget - _count_tokens(mark, model), model)
+                    if head:
+                        blocks.append(head.rstrip() + mark)
+                break
+            blocks.append(block)
+            total += bl
+        return "\n\n".join(blocks)
+
+    # ---- character-budget path (unchanged; default when no model is known) ----
     blocks, total = [], 0
     for r in retrieved[:max_blocks]:
         c = r.chunk
