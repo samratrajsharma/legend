@@ -156,8 +156,6 @@ export const kycApi = {
       `/repos/${rid}/codemap/stats`, { params: { refresh } }
     ),
   codemapStatus: () => api.get<{ available: boolean; load_error: string | null; expected_path: string; expected_path_exists: boolean; codemap_module_file: string | null }>('/codemap/status'),
-  codemapUrl: (rid: string, refresh = 0, embed = 1) =>
-    `/api/v1/repos/${rid}/codemap?refresh=${refresh}&embed=${embed}`,
   codemapData: (rid: string, refresh = 0) =>
     api.get<CodemapData>(`/repos/${rid}/codemap/data`, { params: { refresh } }),
 
