@@ -126,14 +126,20 @@ export default function Files() {
 
   useEffect(() => {
     if (!repoId || !selected) return;
+    // Drop a superseded response: selecting file A then B quickly could otherwise let A's
+    // slower response paint over B (last-write-wins race). `ignore` is set on cleanup, which
+    // React runs before the next effect / on unmount (QA audit #35).
+    let ignore = false;
     setLoading(true);
     Promise.all([
       kycApi.fileContent(repoId, selected).then(r => r.data),
       kycApi.fileSummary(repoId, selected).then(r => r.data).catch(() => null),
     ]).then(([c, s]) => {
+      if (ignore) return;
       setContent({ text: c.text, language: c.language, loc: c.loc });
       setSummary(s);
-    }).finally(() => setLoading(false));
+    }).finally(() => { if (!ignore) setLoading(false); });
+    return () => { ignore = true; };
   }, [repoId, selected]);
 
   // Reverse lookup: file → language, used for tinting file icons.

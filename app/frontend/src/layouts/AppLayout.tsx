@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { NavLink, Outlet, useParams, useNavigate, Link } from 'react-router-dom';
+import { NavLink, Outlet, useParams, useNavigate, useLocation, Link } from 'react-router-dom';
 import { kycApi, RepoListItem, onBackendStatus } from '../api/client';
 import ErrorBoundary from '../components/ErrorBoundary/ErrorBoundary';
 import './AppLayout.css';
@@ -75,6 +75,7 @@ export default function AppLayout() {
   const [backendDown, setBackendDown] = useState(false);
   const { repoId } = useParams<{ repoId: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
 
   useEffect(() => {
     kycApi.listRepos().then(r => setRepos(r.data)).catch(() => {});
@@ -175,9 +176,10 @@ export default function AppLayout() {
             <ReportButton repoId={repoId} />
           </div>
         )}
-        {/* Key by repo so switching repos remounts the page — resetting stale selection
-            and letting each page's cleanup cancel its own in-flight work (QA #34/#35). */}
-        <ErrorBoundary resetKey={repoId ?? 'home'}>
+        {/* Outlet keyed by repo so switching repos remounts the page (resets stale selection,
+            cancels in-flight work — QA #34/#35). ErrorBoundary reset keyed on the full path so a
+            render error on one tab clears when navigating to another tab of the SAME repo. */}
+        <ErrorBoundary resetKey={location.pathname}>
           <Outlet key={repoId ?? 'home'} />
         </ErrorBoundary>
       </main>

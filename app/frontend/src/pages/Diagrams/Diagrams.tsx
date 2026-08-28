@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { kycApi, CodemapData, CodemapArea } from '../../api/client';
+import { useModalDialog } from '../../lib/useModalDialog';
 import './Diagrams.css';
 
 // ─────────────────────────────────────────────────────────────────
@@ -394,6 +395,7 @@ function AreaDrill({
   const area = data.areas.find(a => a.id === areaId);
   const files = data.AREAFILES[areaId] || [];
   const [q, setQ] = useState('');
+  const sheetRef = useModalDialog<HTMLDivElement>(true, onClose);
   if (!area) return null;
   const filteredFiles = q.trim()
     ? files.filter(rel => rel.toLowerCase().includes(q.trim().toLowerCase()))
@@ -401,7 +403,8 @@ function AreaDrill({
 
   return (
     <div className="diag__ov" onClick={onClose}>
-      <div className="diag__sheet" onClick={e => e.stopPropagation()}>
+      <div className="diag__sheet" onClick={e => e.stopPropagation()}
+           ref={sheetRef} role="dialog" aria-modal="true" aria-label={area.name} tabIndex={-1}>
         <header className="diag__sheet-head">
           <div>
             <span className="diag__bartag">
@@ -485,6 +488,7 @@ function FileDeepDive({
   const [llm, setLlm] = useState<{ explanation: string | null; used_llm: boolean; reason: string | null } | null>(null);
   const [llmLoading, setLlmLoading] = useState(false);
   const [llmError, setLlmError] = useState<string | null>(null);
+  const winRef = useModalDialog<HTMLDivElement>(true, onClose);
 
   // Pull rich static metadata (per-symbol complexity, public API, etc.)
   useEffect(() => {
@@ -543,7 +547,8 @@ function FileDeepDive({
 
   return (
     <div className="diag__fov" onClick={onClose}>
-      <div className="diag__fwin" onClick={e => e.stopPropagation()}>
+      <div className="diag__fwin" onClick={e => e.stopPropagation()}
+           ref={winRef} role="dialog" aria-modal="true" aria-label={fileRel} tabIndex={-1}>
         <header className="diag__fwin-head">
           {area && (
             <span className="diag__bartag">
