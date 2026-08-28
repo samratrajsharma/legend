@@ -9,6 +9,7 @@ import hashlib
 import json
 import threading
 import traceback
+from collections import OrderedDict
 from pathlib import Path
 from typing import Any, Optional
 
@@ -446,12 +447,14 @@ def _index_worker(rid: str, src: str, cfg: Config) -> None:
     try:
         idx = build_index(src, cfg, progress=prog)
         with _REPOS_LOCK:
-            _REPOS[rid] = {"meta": idx.meta, "source": src, "status": "ready",
-                           "error": None, "idx": idx, "pct": 100, "message": "Done"}
+            if rid in _REPOS:                     # skip if disconnected mid-index (don't resurrect)
+                _REPOS[rid] = {"meta": idx.meta, "source": src, "status": "ready",
+                               "error": None, "idx": idx, "pct": 100, "message": "Done"}
     except Exception as e:
         with _REPOS_LOCK:
-            _REPOS[rid] = {"source": src, "status": "error", "error": str(e),
-                           "pct": 0, "message": "Failed", "name": _name_from_source(src)}
+            if rid in _REPOS:
+                _REPOS[rid] = {"source": src, "status": "error", "error": str(e),
+                               "pct": 0, "message": "Failed", "name": _name_from_source(src)}
 
 
 @app.post("/api/v1/repos", response_model=ConnectRepoResponse)
@@ -524,6 +527,7 @@ def disconnect_repo(rid: str):
     """Remove a repo from the in-memory list (e.g. after its folder is gone)."""
     with _REPOS_LOCK:
         _REPOS.pop(rid, None)
+    _CODEMAP_CACHE.drop_prefix(f"{rid}:")        # free its (potentially large) codemap HTML
 
 
 # ── Overview, Files ─────────────────────────────────────────────
@@ -822,9 +826,37 @@ def graph_nodes(rid: str) -> dict:
 
 
 # ── codemap: rich interactive architecture HTML ──────────────────
-# Per-repo cache so repeated views are instant. Re-generated on demand by
-# adding ?refresh=1 to the URL.
-_CODEMAP_CACHE: dict[str, dict[str, Any]] = {}
+# Per-repo cache so repeated views are instant. Re-generated on demand by adding
+# ?refresh=1 to the URL. Bounded (each entry holds embedded source HTML, up to
+# ~200 KB/file) and cleared per-repo on disconnect / re-capture so it can't leak.
+class _LruCache:
+    """Thread-safe LRU cache: hard entry cap, plus prefix eviction for per-repo clearing."""
+    def __init__(self, maxsize: int):
+        self._d: "OrderedDict[str, Any]" = OrderedDict()
+        self._max = maxsize
+        self._lock = threading.Lock()
+
+    def get(self, key: str):
+        with self._lock:
+            if key in self._d:
+                self._d.move_to_end(key)
+                return self._d[key]
+            return None
+
+    def put(self, key: str, val) -> None:
+        with self._lock:
+            self._d[key] = val
+            self._d.move_to_end(key)
+            while len(self._d) > self._max:
+                self._d.popitem(last=False)
+
+    def drop_prefix(self, prefix: str) -> None:
+        with self._lock:
+            for k in [k for k in self._d if k.startswith(prefix)]:
+                del self._d[k]
+
+
+_CODEMAP_CACHE = _LruCache(maxsize=24)
 
 
 def _codemap_html_for(idx, embed_src: bool = True, max_src_kb: int = 200) -> dict:
@@ -886,11 +918,13 @@ def codemap_data(rid: str, refresh: int = 0) -> dict:
     Same data the standalone HTML uses internally — areas, edges, file index,
     embedded source, descriptions, palette."""
     idx = _require_idx(rid)
-    cache_key = (rid, "data")
-    if not refresh and cache_key in _CODEMAP_CACHE:
-        return _CODEMAP_CACHE[cache_key]
+    cache_key = f"{rid}:data"
+    if not refresh:
+        hit = _CODEMAP_CACHE.get(cache_key)
+        if hit is not None:
+            return hit
     data = _codemap_data_for(idx)
-    _CODEMAP_CACHE[cache_key] = data
+    _CODEMAP_CACHE.put(cache_key, data)
     return data
 
 
@@ -930,7 +964,9 @@ def _detailed_explain(pf, summary: dict, model: str, extra: dict) -> str:
         model=model,
         messages=[{"role": "system", "content": system},
                   {"role": "user", "content": user}],
-        temperature=0.2, timeout=300, **(extra or {}),
+        # 120s, not 300: a sync handler holds an anyio threadpool worker for its whole
+        # duration, so an over-long LLM timeout lets a few slow explains starve the pool (audit).
+        temperature=0.2, timeout=120, **(extra or {}),
     )
     return r["choices"][0]["message"]["content"].strip()
 
@@ -1075,11 +1111,13 @@ def codemap_stats(rid: str, refresh: int = 0) -> dict:
     """Return just the codemap stats — used by the page header without
     re-downloading the full HTML."""
     idx = _require_idx(rid)
-    cached = _CODEMAP_CACHE.get(rid)
-    if cached and not refresh:
+    cache_key = f"{rid}:html:1"
+    cached = None if refresh else _CODEMAP_CACHE.get(cache_key)
+    if cached:
         return {"stats": cached["stats"], "available": CODEMAP_AVAILABLE}
     out = _codemap_html_for(idx)
-    _CODEMAP_CACHE[rid] = out
+    out["embed_src"] = True
+    _CODEMAP_CACHE.put(cache_key, out)
     return {"stats": out["stats"], "available": CODEMAP_AVAILABLE}
 
 
@@ -1087,12 +1125,13 @@ def codemap_stats(rid: str, refresh: int = 0) -> dict:
 def codemap_html(rid: str, refresh: int = 0, embed: int = 1) -> HTMLResponse:
     """Stream the self-contained codemap HTML for embedding in an iframe."""
     idx = _require_idx(rid)
-    cached = _CODEMAP_CACHE.get(rid)
-    if cached and not refresh and bool(cached.get("embed_src", True)) == bool(embed):
+    cache_key = f"{rid}:html:{1 if embed else 0}"
+    cached = None if refresh else _CODEMAP_CACHE.get(cache_key)
+    if cached:
         return HTMLResponse(content=cached["html"])
     out = _codemap_html_for(idx, embed_src=bool(embed))
     out["embed_src"] = bool(embed)
-    _CODEMAP_CACHE[rid] = out
+    _CODEMAP_CACHE.put(cache_key, out)
     return HTMLResponse(content=out["html"])
 
 
@@ -1124,6 +1163,12 @@ def ask(rid: str, req: AskRequest) -> dict:
         res = idx.ask(req.question, model=model, llm_kwargs=kwargs)
     except Exception as e:
         raise HTTPException(500, f"Ask failed: {type(e).__name__}: {e}")
+    if not res.get("used_llm"):
+        # A model WAS configured (else we returned needs_llm above), so used_llm=False means
+        # the LLM call itself failed and res["answer"] holds the "[LLM unavailable: ...]"
+        # sentinel. Surface it as an error instead of a 200 with that string as the answer,
+        # matching the /ask/stream error-event contract (audit).
+        raise HTTPException(502, res.get("answer") or "LLM call failed")
     return {
         "question": req.question, "answer": res.get("answer"),
         "used_llm": res.get("used_llm", False),
@@ -1413,6 +1458,7 @@ def track_capture(rid: str) -> dict:
             _REPOS[rid]["idx"] = idx
             _REPOS[rid]["meta"] = idx.meta
             _REPOS[rid]["status"] = "ready"
+    _CODEMAP_CACHE.drop_prefix(f"{rid}:")        # the structure changed - don't serve a stale map
     new_fp = _structural_fingerprint(idx)
     tdir = _track_dir(rid)
     state_p, events_p = tdir / "state.json", tdir / "events.jsonl"
