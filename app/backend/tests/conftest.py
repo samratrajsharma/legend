@@ -15,13 +15,8 @@ import pytest
 
 BACKEND = Path(__file__).resolve().parents[1]                 # app/backend
 ENGINE = (BACKEND / ".." / ".." / "engine").resolve()         # engine/
-# BACKEND must precede ENGINE: both dirs contain an `app.py` (backend API vs the
-# engine's Streamlit app) and we must import the backend one as `app`.
-for p in (str(ENGINE), str(BACKEND)):
-    if p in sys.path:
-        sys.path.remove(p)
-sys.path.insert(0, str(ENGINE))
-sys.path.insert(0, str(BACKEND))
+if str(ENGINE) not in sys.path:
+    sys.path.insert(0, str(ENGINE))                           # so `import knowit...` resolves
 
 # No model configured => Ask returns needs_llm without any network calls.
 for k in ("KNOWIT_LLM_PROVIDER", "KNOWIT_LLM_MODEL", "KNOWIT_LLM_BASE_URL"):
@@ -30,12 +25,29 @@ for k in ("KNOWIT_LLM_PROVIDER", "KNOWIT_LLM_MODEL", "KNOWIT_LLM_BASE_URL"):
 SAMPLE_REPO = str((ENGINE / "sample_repo").resolve())
 
 
+def _load_backend_app():
+    """Load app/backend/app.py explicitly by path under the name `app`.
+
+    The engine also ships an `engine/app.py` (a Streamlit app); when the whole repo's
+    tests run together a bare `import app` can resolve to that one (module-name collision),
+    which additionally fails if streamlit is mismatched in the env. Loading by file path and
+    registering it in sys.modules makes `import app` in the tests return THIS module."""
+    import importlib.util
+    if "app" in sys.modules and getattr(sys.modules["app"], "__file__", "") == str(BACKEND / "app.py"):
+        return sys.modules["app"]
+    spec = importlib.util.spec_from_file_location("app", str(BACKEND / "app.py"))
+    module = importlib.util.module_from_spec(spec)
+    sys.modules["app"] = module                               # test_api.py's `import app` gets this
+    spec.loader.exec_module(module)                           # app.py adds ENGINE_ROOT/CODEMAP_ROOT itself
+    return module
+
+
 @pytest.fixture(scope="session")
 def client(tmp_path_factory):
     data_dir = tmp_path_factory.mktemp("kyc_backend_data")
     os.environ["KNOWIT_DATA_DIR"] = str(data_dir)
     from fastapi.testclient import TestClient
-    import app as backend                       # app/backend/app.py
+    backend = _load_backend_app()
     from knowit.config import Config
     # Force BM25 so indexing never reaches for chromadb during tests.
     backend._engine_config = lambda: Config(
