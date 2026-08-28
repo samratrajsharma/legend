@@ -63,7 +63,7 @@ export default function Settings() {
     <div className="settings">
       <div className="page-header">
         <h1>AI / LLM settings</h1>
-        <p>Connect a language model so Ask, Learn and Media can generate answers. It stays local unless you pick a cloud provider.</p>
+        <p>Connect a language model so Ask and the LLM explanations can generate answers. It stays local unless you pick a cloud provider.</p>
       </div>
 
       <div className="set-card">
@@ -146,7 +146,7 @@ export default function Settings() {
         <ul>
           <li><strong>Ollama (local)</strong> — free, private, offline. Install Ollama, run <code>ollama pull qwen2.5-coder:7b</code> (great for code), then “Detect installed models”.</li>
           <li><strong>OpenAI / Anthropic / Groq / OpenRouter</strong> — paste an API key; faster and higher quality, but requests leave your machine.</li>
-          <li>No model is fine for browsing structure, files, graphs and metrics — only the generated answers (Ask / Learn / Media) need an LLM.</li>
+          <li>No model is fine for browsing structure, files, graphs and metrics — only the generated answers (Ask and per-file/function explanations) need an LLM.</li>
         </ul>
       </div>
     </div>

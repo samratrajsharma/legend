@@ -40,8 +40,8 @@ from knowit.pipeline import build_index  # type: ignore
 from knowit.retrieval import assemble_context  # type: ignore
 from knowit import (                      # type: ignore
     insights, providers as engine_providers,
-    teach, track, techdebt, engmemory, media, research,
-    impact, coverage, config_map, eval_harness, progress as kyc_progress,
+    track, techdebt, engmemory,
+    impact, coverage, config_map, progress as kyc_progress,
 )
 
 # codemap is a single-file stdlib script — defensive import in case the folder
@@ -143,8 +143,6 @@ class FlashcardReviewRequest(BaseModel):
 class SnapshotDiffRequest(BaseModel):
     base_commit: str
     head_commit: str
-class EvalRequest(BaseModel):
-    questions: list[dict]   # [{question, expected_keywords}]
 
 
 # ── Helpers ──────────────────────────────────────────────────────

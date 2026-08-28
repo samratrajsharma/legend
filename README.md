@@ -136,4 +136,4 @@ docs/          internals documentation
 
 ## License
 
-No license file is currently included. Add a `LICENSE` before public distribution.
+MIT — see [LICENSE](LICENSE).
