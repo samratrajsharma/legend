@@ -232,7 +232,7 @@ const Legend: React.FC = () => {
   const [copied, setCopied] = useState(false);
   const copyInstall = () => {
     try {
-      navigator.clipboard.writeText('pip install legend');
+      navigator.clipboard.writeText('uvx legend-lens .');
       setCopied(true);
       window.setTimeout(() => setCopied(false), 1500);
     } catch { /* clipboard unavailable on non-HTTPS hosts */ }
@@ -439,7 +439,7 @@ const Legend: React.FC = () => {
               repository, and the map builds itself — your code never leaves your computer.
             </p>
             <div className="kyc-install">
-              <span className="kyc-install__cmd"><span className="kyc-install__sym">$</span> pip install <span className="kyc-install__pkg">legend</span></span>
+              <span className="kyc-install__cmd"><span className="kyc-install__sym">$</span> uvx <span className="kyc-install__pkg">legend-lens</span> .</span>
               <button type="button" className={'kyc-install__copy' + (copied ? ' is-ok' : '')} onClick={copyInstall} aria-label={copied ? 'Copied' : 'Copy install command'}>
                 {copied ? (
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
@@ -448,9 +448,9 @@ const Legend: React.FC = () => {
                 )}
               </button>
             </div>
-            <span className="kyc-install__hint">then point it at a repo — <code>legend scan .</code></span>
+            <span className="kyc-install__hint">runs instantly with <a href="https://docs.astral.sh/uv/" target="_blank" rel="noopener noreferrer">uv</a> — or install it: <code>pipx install legend-lens</code> · <code>pip install legend-lens</code></span>
             <div className="kyc-cta__actions">
-              <a href={DOCS_URL} className="kyc-btn kyc-btn--green">Read the docs →</a>
+              <a href={DOCS_URL} className="kyc-btn kyc-btn--green" target="_blank" rel="noopener noreferrer">Read the docs →</a>
               <a href={GITHUB_URL} className="kyc-btn kyc-btn--ghost" target="_blank" rel="noopener noreferrer">View on GitHub</a>
             </div>
           </div>

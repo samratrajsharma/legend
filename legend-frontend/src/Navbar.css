@@ -13,9 +13,8 @@
 }
 .kn-nav__brand { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
 .kn-nav__mark {
-  width: 18px; height: 18px; border-radius: 5px;
-  background: linear-gradient(135deg, #1DB954, #5BE88C);
-  box-shadow: 0 0 12px rgba(29,185,84,.5);
+  width: 20px; height: 20px;
+  filter: drop-shadow(0 0 8px rgba(29,185,84,.45));
 }
 .kn-nav__name { font-size: 16px; font-weight: 700; letter-spacing: -0.02em; color: var(--color-text); }
 
