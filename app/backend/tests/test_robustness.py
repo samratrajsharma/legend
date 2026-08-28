@@ -62,3 +62,24 @@ def test_ask_llm_failure_is_error_not_fake_answer(client, ready_repo, monkeypatc
                     json={"question": "hi", "provider": "openai", "model": "gpt-4o-mini"})
     assert r.status_code == 502
     assert "unavailable" in r.text.lower()
+
+
+# ── T5: security hardening ──────────────────────────────────────────────────
+def test_ollama_models_rejects_non_loopback_ssrf(client):
+    # An attacker-supplied non-local base_url must be refused, not fetched (SSRF).
+    j = client.get("/api/v1/llm/ollama-models",
+                   params={"base_url": "http://169.254.169.254"}).json()
+    assert j["ok"] is False and "local" in (j.get("error", "").lower())
+
+
+def test_track_endpoint_rejects_invalid_rid(client):
+    # A non-hex rid must not be used as a filesystem path segment / create a dir.
+    assert client.get("/api/v1/repos/not-a-real-rid/track/timeline").status_code == 404
+
+
+def test_persist_env_rejects_newline_injection(client):
+    import app as backend
+    import pytest as _pytest
+    with _pytest.raises(Exception) as ei:
+        backend._persist_env({"KNOWIT_LLM_MODEL": "gpt\nINJECTED=1"})
+    assert getattr(ei.value, "status_code", None) == 400

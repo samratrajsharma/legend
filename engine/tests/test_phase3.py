@@ -117,3 +117,20 @@ def test_ask_does_not_mutate_config(idx):
     except Exception:
         pass                                                # LLM may be unavailable; irrelevant here
     assert idx.config.llm_model == before                   # override stayed local (#49)
+
+
+# ── T5: HMAC-signed pickle cache (never unpickle unverified bytes) ───────────
+def test_cache_rejects_unsigned_and_tampered_pickles(tmp_path):
+    import os
+    import pickle as _pickle
+    from knowit import pipeline
+    d = str(tmp_path)
+    secret = pipeline._cache_secret(d)
+    p = os.path.join(d, "cache", "c.pkl")
+    pipeline._cache_dump(p, {"ok": 1}, secret)
+    assert pipeline._cache_load(p, secret) == {"ok": 1}          # genuine round-trip
+    with open(p, "wb") as fh:                                    # planted RAW pickle = RCE vector
+        fh.write(_pickle.dumps({"evil": True}))
+    assert pipeline._cache_load(p, secret) is None              # refused, not unpickled
+    pipeline._cache_dump(p, {"ok": 1}, secret)
+    assert pipeline._cache_load(p, os.urandom(32)) is None      # wrong secret -> refused

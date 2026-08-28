@@ -7,11 +7,14 @@ import os
 import sys
 import hashlib
 import json
+import re
 import threading
 import traceback
 from collections import OrderedDict
 from pathlib import Path
 from typing import Any, Optional
+
+_RID_RE = re.compile(r"[0-9a-f]{12}")     # repo ids are sha1(source)[:12]; reject anything else
 
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
@@ -69,9 +72,15 @@ app = FastAPI(title="Know Your Code (testbed)", version="0.2.0")
 # same-origin and CORS never engages. Rejecting any Host header that isn't our own closes
 # that whole class - a rebinding request arrives with Host: attacker.tld and is refused
 # with 400 before any handler runs. (Audit critical #4.)
+# Default to loopback only. A reverse-proxied / KNOWIT_HOST=0.0.0.0 deployment can add its own
+# hostname(s) via KNOWIT_ALLOWED_HOSTS (comma-separated) - the allowlist and the exposure knob
+# are then consistent (audit). Note: this is a Host check, NOT authentication; put a proxy with
+# auth in front of any non-loopback exposure.
+_DEFAULT_HOSTS = ["localhost", "127.0.0.1", "localhost:8100", "127.0.0.1:8100"]
+_extra_hosts = [h.strip() for h in os.environ.get("KNOWIT_ALLOWED_HOSTS", "").split(",") if h.strip()]
 app.add_middleware(
     TrustedHostMiddleware,
-    allowed_hosts=["localhost", "127.0.0.1", "localhost:8100", "127.0.0.1:8100"],
+    allowed_hosts=_DEFAULT_HOSTS + _extra_hosts,
 )
 app.add_middleware(
     CORSMiddleware,
@@ -229,6 +238,11 @@ class LlmTestRequest(BaseModel):
 
 def _persist_env(updates: dict) -> None:
     """Upsert KEY=VALUE lines in backend/.env so config survives a restart."""
+    # Reject newline/carriage-return in values: otherwise a crafted key/base_url could inject
+    # extra .env lines (e.g. flip another setting) when written back (audit).
+    for k, v in updates.items():
+        if "\n" in str(v) or "\r" in str(v):
+            raise HTTPException(400, f"Invalid value for {k}: must not contain newlines.")
     env_path = HERE / ".env"
     lines = env_path.read_text(encoding="utf-8").splitlines() if env_path.exists() else []
     seen, out = set(), []
@@ -354,8 +368,15 @@ def llm_ollama_models(base_url: str = "") -> dict:
     """List models actually installed in a local Ollama (its /api/tags)."""
     import json as _json
     import urllib.request
+    from urllib.parse import urlparse
     base = (base_url or os.environ.get("KNOWIT_LLM_BASE_URL", "")
             or "http://localhost:11434").rstrip("/")
+    # SSRF guard: only reach a LOCAL Ollama. Without this, an attacker-supplied base_url turns
+    # this unauthenticated GET into a server-side request to internal/metadata hosts (audit).
+    host = (urlparse(base).hostname or "").lower()
+    if host not in ("localhost", "127.0.0.1", "::1"):
+        return {"ok": False, "base_url": base, "models": [],
+                "error": "Only a local Ollama (localhost / 127.0.0.1) is allowed."}
     try:
         with urllib.request.urlopen(base + "/api/tags", timeout=5) as resp:
             data = _json.loads(resp.read().decode("utf-8"))
@@ -1263,6 +1284,10 @@ def track_diff(rid: str, req: SnapshotDiffRequest) -> dict:
 
 # ── Timeline: over-time change tracking (one living state + an append-only log) ──
 def _track_dir(rid: str) -> Path:
+    # Validate before using rid as a path segment / creating a dir: a real rid is 12 hex chars,
+    # so anything else (`..`, absolute paths) is rejected rather than making stray dirs (audit).
+    if not _RID_RE.fullmatch(rid or ""):
+        raise HTTPException(404, "Unknown repo_id")
     d = Path(os.environ.get("KNOWIT_DATA_DIR", str(HERE / ".cache"))) / "tracked" / rid
     d.mkdir(parents=True, exist_ok=True)
     return d
