@@ -10,7 +10,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "legend-lens"
-version = "0.1.0"
+version = "0.1.1"
 description = "Legend — point it at a codebase and explore it in your browser (local-first code intelligence)."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -38,10 +38,12 @@ semantic = ["chromadb>=0.5.0"]                                    # on-device se
 llm = ["litellm>=1.40"]                                          # AI answers/explanations
 treesitter = ["tree-sitter>=0.21", "tree-sitter-language-pack>=0.2"]
 export = ["python-docx>=1.1.0", "reportlab>=4.0.0", "python-pptx>=0.6.23"]  # .docx/.pdf report
+mcp = ["mcp>=1.2,<2"]   # `legend mcp` server; <2 shares starlette with FastAPI (mcp 2.x needs starlette 1.x)
 all = [
     "chromadb>=0.5.0", "litellm>=1.40",
     "tree-sitter>=0.21", "tree-sitter-language-pack>=0.2",
     "python-docx>=1.1.0", "reportlab>=4.0.0", "python-pptx>=0.6.23",
+    "mcp>=1.2,<2",
 ]
 
 # `legend` is the short command; `legend-lens` matches the PyPI name so `uvx legend-lens` works bare.

@@ -31,6 +31,7 @@ Legend indexes a codebase **once** — symbols, a call/import graph, and searcha
   - [Command-line options](#command-line-options)
   - [Examples](#examples)
 - [Using the app](#using-the-app)
+- [Use with coding agents (MCP)](#use-with-coding-agents-mcp)
 - [Enabling AI answers (bring your own model)](#enabling-ai-answers-bring-your-own-model)
 - [Configuration reference](#configuration-reference)
 - [Where your data lives](#where-your-data-lives)
@@ -157,6 +158,40 @@ Once the browser is open, you'll find these tabs:
 - **Intel** — tech-debt analysis: dead code, import cycles, complexity hotspots, "god" files, near-duplicates, and undocumented symbols.
 - **Settings** — configure your LLM provider/model and search backend live, without restarting.
 - **Download report** — from any tab, export the full analysis as Markdown, or (with the `export` extra) Word/PDF.
+
+## Use with coding agents (MCP)
+
+Legend also runs as an [MCP](https://modelcontextprotocol.io) server, giving coding agents (Claude Code, Claude Desktop, Cursor, Windsurf, Zed, Continue, Cline — anything that speaks MCP) **deterministic** answers about your code's structure. These are the questions that otherwise cost an agent a dozen greps and tens of thousands of tokens to approximate — here they're one call each.
+
+```bash
+uvx --with "legend-lens[mcp]" legend mcp --repo .
+# or, once installed:  pip install "legend-lens[mcp]"   then   legend mcp --repo .
+```
+
+Point your MCP client at it:
+
+```json
+{
+  "mcpServers": {
+    "legend": { "command": "uvx", "args": ["--with", "legend-lens[mcp]", "legend", "mcp", "--repo", "."] }
+  }
+}
+```
+
+Tools exposed (all read-only, one deterministic call each):
+
+| Tool | Answers |
+|------|---------|
+| `blast_radius(symbol)` | Everything transitively affected if this symbol changes (callers + importers). |
+| `callers_of` / `callees_of` | Resolved call edges (optionally transitive) — not text matches. |
+| `impact_of_change(file)` | Blast radius of editing a whole file. |
+| `structural_diff(base, head)` | Symbol/import/complexity changes between two git refs. |
+| `routes_touched` / `models_touched` | HTTP routes / data models whose file is in a change set. |
+| `cycles(base?)` | Import cycles — or only those introduced since a ref. |
+| `architecture_map` / `public_surface` | Area dependencies; entry points, exports, cross-file API. |
+| `find_symbol` / `overview` / `reindex` | Resolve a name; orient; refresh after edits. |
+
+Drop [`skills/legend/SKILL.md`](skills/legend/SKILL.md) into your agent so it knows *when* to call them (e.g. `blast_radius` before editing a function, `cycles` before merging).
 
 ## Enabling AI answers (bring your own model)
 

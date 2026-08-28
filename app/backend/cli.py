@@ -24,9 +24,17 @@ def _repo_id(source: str) -> str:
 
 
 def main(argv=None) -> int:
+    import sys
+    _argv = list(sys.argv[1:] if argv is None else argv)
+    # `legend mcp [...]` -> the MCP server (graph tools over stdio for coding agents)
+    if _argv and _argv[0] == "mcp":
+        from legend.mcp_server import main as _mcp_main
+        return _mcp_main(_argv[1:])
+
     p = argparse.ArgumentParser(
         prog="legend",
-        description="Legend — point it at a codebase and explore it in your browser.",
+        description="Legend — point it at a codebase and explore it in your browser. "
+                    "Use `legend mcp` to serve graph tools to coding agents over MCP.",
     )
     p.add_argument("source", nargs="?", default="",
                    help="a git URL or a local folder to open (omit to just start the app)")
