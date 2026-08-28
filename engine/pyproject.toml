@@ -1,0 +1,54 @@
+[build-system]
+requires = ["setuptools>=61", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "knowit"
+version = "0.1.0"
+description = "Know Your Code — local-first codebase-intelligence engine (parsing, code graph, hybrid retrieval)."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "Samrat Raj Sharma" }]
+keywords = ["code-intelligence", "static-analysis", "rag", "code-graph", "developer-tools"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Topic :: Software Development :: Libraries",
+]
+# The core engine is pure-stdlib on purpose: parsing (ast), the code graph, BM25 lexical
+# retrieval and chunking need no third-party packages. Everything heavier is optional and
+# lazy-imported, so a missing extra degrades one feature instead of breaking import.
+dependencies = []
+
+[project.optional-dependencies]
+# Semantic (dense) retrieval — on-device MiniLM embeddings. Without it, retrieval is BM25-only.
+semantic = ["chromadb>=0.5.0"]
+# LLM answers/explanations (provider-agnostic). Without it, indexing + browsing still work.
+llm = ["litellm>=1.40"]
+# Multi-language parsing beyond Python/JS/TS (Go, Java, Rust, C#, Ruby, PHP, C, C++).
+treesitter = ["tree-sitter>=0.21", "tree-sitter-language-pack>=0.2"]
+# Report/media export (.docx / .pdf / .pptx).
+export = ["python-docx>=1.1.0", "reportlab>=4.0.0", "python-pptx>=0.6.23"]
+# The optional standalone Streamlit engine UI.
+ui = ["streamlit>=1.36", "watchdog>=4.0", "pyvis>=0.3.2"]
+# Everything, for a full local install.
+all = [
+    "chromadb>=0.5.0", "litellm>=1.40",
+    "tree-sitter>=0.21", "tree-sitter-language-pack>=0.2",
+    "python-docx>=1.1.0", "reportlab>=4.0.0", "python-pptx>=0.6.23",
+]
+dev = ["pytest>=7"]
+
+[project.urls]
+Homepage = "https://github.com/samratrajsharma/knowyourcode"
+Repository = "https://github.com/samratrajsharma/knowyourcode"
+
+[tool.setuptools]
+# Explicit so packaging never sweeps up the engine's stray top-level scripts (app.py, etc.).
+packages = ["knowit"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
