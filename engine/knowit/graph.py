@@ -145,6 +145,16 @@ def build_graph(parsed_files):
                             if bmid in g.nodes:
                                 out.append(bmid)
             return out
+        if kind == "typed":
+            # obj.method() where obj's class is known (obj = Cls() / param: Cls). Resolve the
+            # class (cross-file via import/name), then its method. This recovers real instance
+            # calls WITHOUT the phantom guessing: an unknown/dict receiver never reaches here.
+            cls, _, meth = name.rpartition(".")
+            for ct in resolve(caller_file, imports, cls, want_class=True):
+                mid = f"{ct}.{meth}"
+                if mid in g.nodes:
+                    return [mid]
+            return list(file_name_index.get((caller_file, meth), []))
         if kind == "attr":
             # obj.method() where obj's type is unknown: trust ONLY a same-file definition.
             # Falling through to the repo-wide resolve() matched any repo-UNIQUE name, so a

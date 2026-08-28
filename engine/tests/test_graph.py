@@ -13,12 +13,12 @@ def test_stats_match_sample_repo(idx):
     assert s["edge_types"]["contains"] == 15   # one per symbol
     assert s["edge_types"]["imports"] == 7
     assert s["edge_types"]["method_of"] == 6   # Detector's 6 methods
-    # 12, not more: `obj.method()` on an unknown receiver type (_MODEL.predict / model.predict)
-    # is intentionally NOT resolved cross-file. Guessing on repo-wide name-uniqueness would
-    # correctly link predict() here but manufacture phantom edges (dict.get -> a lone
-    # CodeGraph.get) on real repos, so attr calls resolve same-file only (QA audit).
-    assert s["edge_types"]["calls"] == 12
-    assert s["edges"] == 40
+    # 14: the two `model.predict()` / `_MODEL.predict()` edges resolve because the receivers
+    # are typed (`model = Detector()`), NOT by guessing on repo-wide name-uniqueness. An
+    # UNKNOWN receiver (`d = {}; d.get()`) is left unresolved so it can't phantom-link to a
+    # lone same-named symbol - the ~half-the-graph phantom bug the QA audit found.
+    assert s["edge_types"]["calls"] == 14
+    assert s["edges"] == 42
 
 
 def test_contains_edges(idx):
@@ -70,6 +70,23 @@ def test_attr_call_resolves_within_same_file(build_repo):
     })
     g = repo.graph
     assert "svc.py::Helper.run" in g.callees("svc.py::handler")
+
+
+def test_typed_receiver_resolves_cross_file(build_repo):
+    # When the receiver's class is known (`obj = Cls()` or a `obj: Cls` param annotation),
+    # obj.method() resolves to that class's method even across files - precisely, without the
+    # name-uniqueness guessing. Both an instance and an annotated-param receiver.
+    repo = build_repo({
+        "engine.py": "class Engine:\n    def run(self):\n        return 1\n",
+        "app.py": (
+            "from engine import Engine\n\n"
+            "def viainstance():\n    e = Engine()\n    return e.run()\n\n"
+            "def viaparam(e: Engine):\n    return e.run()\n"
+        ),
+    })
+    g = repo.graph
+    assert "engine.py::Engine.run" in g.callees("app.py::viainstance")
+    assert "engine.py::Engine.run" in g.callees("app.py::viaparam")
 
 
 def test_decorated_handler_no_phantom_call_edge(build_repo):
