@@ -90,6 +90,22 @@ def test_class_bases_captured():
     assert child.bases == ["Base", "Mixin"]
 
 
+def test_decorator_expression_not_counted_as_a_call(sample_repo_path):
+    # `@app.get("/items")` is NOT a call the handler makes. Walking the decorator injected a
+    # bogus `get` call/call-site and inflated complexity, which then manufactured phantom
+    # call edges to any repo symbol named `get` (QA audit). Extraction is body-only now.
+    pf = parse_python(
+        "h.py",
+        'import flask\napp = flask.Flask(__name__)\n\n'
+        '@app.get("/items")\n'
+        'def handler():\n    return "ok"\n',
+    )
+    h = _sym(pf, "handler")
+    assert "get" not in h.calls
+    assert all(name != "get" for _kind, name in h.call_sites)
+    assert h.complexity == 1                      # not inflated by the decorator
+
+
 def test_parse_python_syntax_error_is_captured():
     pf = parse_python("bad.py", "def broken(:\n    pass\n")
     assert pf.error.startswith("SyntaxError")
