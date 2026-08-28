@@ -198,7 +198,16 @@ function Impact({ rid }: { rid: string }) {
 
 function Coverage({ rid }: { rid: string }) {
   const [data, setData] = useState<any>(null);
-  useEffect(() => { kycApi.intelCoverage(rid).then(r => setData(r.data)).catch(() => setData({})); }, [rid]);
+  const [err, setErr] = useState<string | null>(null);
+  useEffect(() => {
+    let ignore = false;
+    setData(null); setErr(null);
+    kycApi.intelCoverage(rid)
+      .then(r => { if (!ignore) setData(r.data); })
+      .catch(e => { if (!ignore) setErr(e?.response?.data?.detail || 'Failed to load coverage.'); });
+    return () => { ignore = true; };   // ignore a resolved request after unmount/rid change
+  }, [rid]);
+  if (err) return <div className="card"><div className="toast toast--err">{err}</div></div>;
   if (!data) return <div className="dash-loading">Loading…</div>;
   return (
     <div className="card">

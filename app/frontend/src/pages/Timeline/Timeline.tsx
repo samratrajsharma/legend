@@ -15,15 +15,18 @@ export default function Timeline() {
   const [loading, setLoading] = useState(true);
   const [capturing, setCapturing] = useState(false);
   const [msg, setMsg] = useState('');
+  const [err, setErr] = useState<string | null>(null);
   const [narr, setNarr] = useState<Record<string, { loading?: boolean; text?: string; needs?: boolean; reason?: string }>>({});
   const [auto, setAuto] = useState(false);
 
   const load = useCallback(() => {
     if (!repoId) return;
-    setLoading(true);
+    setLoading(true); setErr(null);
     Promise.all([kycApi.trackTimeline(repoId), kycApi.trackTrends(repoId)])
       .then(([t, tr]) => { setEvents(t.data.events || []); setSeries(tr.data.series || []); })
-      .catch(() => {})
+      // a real load failure must show an error, not the misleading "no history yet" empty state
+      .catch((e: { response?: { data?: { detail?: string } } }) =>
+        setErr(e?.response?.data?.detail || 'Failed to load the timeline.'))
       .finally(() => setLoading(false));
   }, [repoId]);
   useEffect(() => {
@@ -131,6 +134,8 @@ export default function Timeline() {
 
       {loading ? (
         <div className="dash-loading">Loading timeline…</div>
+      ) : err ? (
+        <div className="toast toast--err">{err} <button className="btn btn--ghost" onClick={load}>Retry</button></div>
       ) : events.length === 0 ? (
         <div className="empty-state">
           <h3>No history yet</h3>
