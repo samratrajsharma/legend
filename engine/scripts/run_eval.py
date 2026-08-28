@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Headless KnowIT Phase 0 eval runner.
+"""Headless Legend Phase 0 eval runner.
 
 Usage:
   python scripts/run_eval.py <repo_path_or_url> <questions.json> [--judge-model MODEL]
@@ -10,13 +10,13 @@ import os
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from knowit.pipeline import build_index          # noqa: E402
-from knowit.config import CONFIG                  # noqa: E402
-from knowit.eval_harness import load_questions, run_eval   # noqa: E402
+from legend.pipeline import build_index          # noqa: E402
+from legend.config import CONFIG                  # noqa: E402
+from legend.eval_harness import load_questions, run_eval   # noqa: E402
 
 
 def main():
-    ap = argparse.ArgumentParser(description="KnowIT Phase 0 eval runner")
+    ap = argparse.ArgumentParser(description="Legend Phase 0 eval runner")
     ap.add_argument("repo", help="path or git URL of the repo to analyze")
     ap.add_argument("questions", help="path to questions .json / .yaml")
     ap.add_argument("--judge-model", default="",

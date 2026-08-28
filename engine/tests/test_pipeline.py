@@ -1,10 +1,10 @@
-"""Tests for knowit.pipeline — build_index, RepoIndex, cache, and registry."""
+"""Tests for legend.pipeline — build_index, RepoIndex, cache, and registry."""
 from __future__ import annotations
 
 import os
 
-from knowit.config import Config
-from knowit.pipeline import (RepoIndex, _signature, build_index, recent_repos,
+from legend.config import Config
+from legend.pipeline import (RepoIndex, _signature, build_index, recent_repos,
                              record_repo)
 
 

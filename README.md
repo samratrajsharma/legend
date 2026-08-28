@@ -1,6 +1,6 @@
 <div align="center">
 
-# Know Your Code
+# Legend
 
 **Local-first codebase intelligence.** Point it at a repository or folder and it maps the architecture, explains files, answers questions with your own LLM, and tracks how the code changes over time — all on your machine. Analysis is deepest for **Python** today (full AST); JavaScript/TypeScript support is best-effort and other languages are on the roadmap.
 
@@ -13,7 +13,7 @@
 
 ---
 
-Know Your Code (engine name `knowit`) turns an unfamiliar codebase into something you can actually navigate. Connect a Git URL or a local folder; it indexes the code once — symbols, a call/import graph, and searchable embeddings — and every view after that reads from that single in-memory index. It runs entirely on your machine: the only things that ever leave are the initial `git clone` and, if you choose, calls to an LLM you configure.
+Legend (engine name `legend`) turns an unfamiliar codebase into something you can actually navigate. Connect a Git URL or a local folder; it indexes the code once — symbols, a call/import graph, and searchable embeddings — and every view after that reads from that single in-memory index. It runs entirely on your machine: the only things that ever leave are the initial `git clone` and, if you choose, calls to an LLM you configure.
 
 ## Features
 
@@ -34,18 +34,45 @@ Three components live side by side and wire together by relative path:
 | Component | What it is |
 |-----------|------------|
 | `app/` | The product — a React + Vite frontend over a thin FastAPI backend. |
-| `engine/` | The `knowit` Python package: indexing, retrieval, graph, tracking, analysis. |
+| `engine/` | The `legend` Python package: indexing, retrieval, graph, tracking, analysis. |
 | `diagrams/` | `codemap` — a standalone, stdlib-only architecture-map generator. |
 
 Indexing runs in six stages: **ingest/clone → parse (AST for Python, regex for JS/TS) → build the code graph → chunk → build retrievers (BM25 + optional Chroma embeddings) → cache**. The result is an in-memory `RepoIndex`; every feature is a pure read over it. A full internals walkthrough lives in [`docs/how-it-works.html`](docs/how-it-works.html).
 
-## Quick start
+## Install & run
+
+Legend ships as a single self-contained command that starts the app, indexes a repo, and opens your browser — no API key, config, or account needed. Structure, files, graph, search, and metrics all work offline; only the AI "Ask" answers need a model you configure later.
+
+```bash
+# zero-install: clone + index + open, in one command (once published to PyPI)
+uvx legend https://github.com/some/user/repo
+uvx legend .                      # index the current folder
+```
+
+Or install it into your environment:
+
+```bash
+pipx install legend               # isolated, always-available `legend` command
+pip install legend                # or into the current venv
+legend .                          # then point it at any repo or folder
+```
+
+`legend --help` covers the flags (`--port`, `--host`, `--data-dir`, `--no-open`). Optional extras add heavier features on top of the offline core: `pip install "legend[semantic]"` (on-device semantic search), `[llm]` (AI answers), `[treesitter]` (10+ languages), `[export]` (`.docx`/`.pdf` reports), or `[all]`.
+
+> **Building the wheel locally** (until it's on PyPI): the frontend is bundled into the package, so build it once first, then install.
+> ```bash
+> python scripts/build.py          # npm build -> app/backend/web/ (bundled into the wheel)
+> pip install .                    # now `legend <repo>` works
+> # or: uvx --from . legend .
+> ```
+
+## Run from source (development)
 
 **Requirements:** Python 3.10+ and Node.js 18+.
 
 ```bash
-git clone https://github.com/samratrajsharma/knowyourcode.git
-cd knowyourcode
+git clone https://github.com/samratrajsharma/legend.git
+cd legend
 ```
 
 ### Windows (PowerShell)
@@ -90,12 +117,12 @@ All configuration is optional and lives in `app/backend/.env` (copy from `.env.e
 
 | Variable | Purpose |
 |----------|---------|
-| `KNOWIT_LLM_PROVIDER` | `openai` \| `anthropic` \| `gemini` \| `groq` \| `ollama` \| `openrouter` \| `custom` |
-| `KNOWIT_LLM_MODEL` | Model name for the chosen provider |
-| `KNOWIT_LLM_BASE_URL` | Endpoint for Ollama (`http://localhost:11434`) or a custom provider |
+| `LEGEND_LLM_PROVIDER` | `openai` \| `anthropic` \| `gemini` \| `groq` \| `ollama` \| `openrouter` \| `custom` |
+| `LEGEND_LLM_MODEL` | Model name for the chosen provider |
+| `LEGEND_LLM_BASE_URL` | Endpoint for Ollama (`http://localhost:11434`) or a custom provider |
 | `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GEMINI_API_KEY`, `GROQ_API_KEY`, `OPENROUTER_API_KEY` | Set only the one you use |
-| `KNOWIT_EMBED_BACKEND` | `auto` \| `hybrid` \| `bm25` \| `chroma` (retrieval mode) |
-| `KNOWIT_DATA_DIR` | Where parsed indexes and clones are cached |
+| `LEGEND_EMBED_BACKEND` | `auto` \| `hybrid` \| `bm25` \| `chroma` (retrieval mode) |
+| `LEGEND_DATA_DIR` | Where parsed indexes and clones are cached |
 
 Providers and models can also be configured live from the in-app **Settings** tab.
 
@@ -107,7 +134,7 @@ app/
   frontend/    React 19 + Vite + TypeScript UI (:5273)
   run.ps1      dev launcher (backend + frontend)
 engine/
-  knowit/      the analysis engine (ingest, parsing, graph, retrieval,
+  legend/      the analysis engine (ingest, parsing, graph, retrieval,
                llm, insights, techdebt, track, providers, ...)
   tests/       engine test suite
 diagrams/

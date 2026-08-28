@@ -1,10 +1,10 @@
-# Know Your Code testbed - start backend + frontend.
+# Legend testbed - start backend + frontend.
 # Pure ASCII only. Ctrl+C in this window stops both processes cleanly.
 #
 #   .\run.ps1               start normally
 #   .\run.ps1 -Fresh        wipe ALL indexed repos, caches and tracking history, then start
 #   .\run.ps1 -Fresh -Yes   same, no confirmation prompt
-#   .\run.ps1 -Reload       backend hot-reload (KNOWIT_RELOAD=1) - see main.py for why it is off by default
+#   .\run.ps1 -Reload       backend hot-reload (LEGEND_RELOAD=1) - see main.py for why it is off by default
 #   .\run.ps1 -Website      marketing site ONLY (:5300) - no backend, no engine, no cache
 #
 # -Fresh does NOT touch .env (API keys), node_modules, or the python env.
@@ -23,7 +23,7 @@ $BackendDir  = Join-Path $Root "backend"
 $FrontendDir = Join-Path $Root "frontend"
 $NodeModules = Join-Path $FrontendDir "node_modules"
 $DepsMarker  = Join-Path $BackendDir ".deps-installed"
-$SiteDir     = Join-Path (Split-Path -Parent $Root) "knowyourcode-frontend"
+$SiteDir     = Join-Path (Split-Path -Parent $Root) "legend-frontend"
 
 # ----- -Website : the public landing page, on its own -----
 # Deliberately standalone: no python, no uvicorn, no engine, no data dir, no proxy.
@@ -41,7 +41,7 @@ if ($Website) {
         Pop-Location
     }
     Write-Host ""
-    Write-Host "Know Your Code - marketing site" -ForegroundColor Green
+    Write-Host "Legend - marketing site" -ForegroundColor Green
     Write-Host "  http://localhost:5300"
     Write-Host "  Standalone: no backend, no engine, no cache."
     Write-Host "  Ctrl+C to stop."
@@ -51,14 +51,14 @@ if ($Website) {
     exit 0
 }
 
-# ----- The data dir the backend actually uses (app.py: KNOWIT_DATA_DIR, default ./.cache)
+# ----- The data dir the backend actually uses (app.py: LEGEND_DATA_DIR, default ./.cache)
 function Get-DataDir {
-    if ($env:KNOWIT_DATA_DIR) { $v = $env:KNOWIT_DATA_DIR }
+    if ($env:LEGEND_DATA_DIR) { $v = $env:LEGEND_DATA_DIR }
     else {
         $v = $null
         $envFile = Join-Path $BackendDir ".env"
         if (Test-Path $envFile) {
-            $m = Select-String -Path $envFile -Pattern '^\s*KNOWIT_DATA_DIR\s*=\s*(.+)$' | Select-Object -First 1
+            $m = Select-String -Path $envFile -Pattern '^\s*LEGEND_DATA_DIR\s*=\s*(.+)$' | Select-Object -First 1
             if ($m) { $v = $m.Matches[0].Groups[1].Value.Trim().Trim('"').Trim("'") }
         }
     }
@@ -172,7 +172,7 @@ if ($Fresh) {
         }
     }
 
-    foreach ($extra in @((Join-Path $Root "..\engine\.knowit_cache"), (Join-Path $Root "..\.knowit_cache"))) {
+    foreach ($extra in @((Join-Path $Root "..\engine\.legend_cache"), (Join-Path $Root "..\.legend_cache"))) {
         if (Test-Path -LiteralPath $extra) {
             Write-Host "[fresh] Also removing $extra"
             Clear-Tree $extra | Out-Null
@@ -244,7 +244,7 @@ if (-not (Test-Path $NodeModules)) {
 }
 
 Write-Host ""
-Write-Host "Starting Know Your Code testbed..."
+Write-Host "Starting Legend testbed..."
 Write-Host "  Backend:  http://localhost:8100  (docs at /docs)"
 Write-Host "  Frontend: http://localhost:5273"
 if ($Reload) { Write-Host "  Backend hot-reload: ON" -ForegroundColor Yellow }
@@ -253,13 +253,13 @@ Write-Host "Press Ctrl+C in THIS window to stop both."
 Write-Host ""
 
 # ----- Spawn backend + frontend as tracked child windows -----
-$reloadPrefix = if ($Reload) { "`$env:KNOWIT_RELOAD='1'; " } else { "`$env:KNOWIT_RELOAD='0'; " }
+$reloadPrefix = if ($Reload) { "`$env:LEGEND_RELOAD='1'; " } else { "`$env:LEGEND_RELOAD='0'; " }
 if ($ActiveConda) {
-    $backendCmd = "Write-Host 'KnowIT backend (:8100)' -ForegroundColor Magenta; conda activate $ActiveConda; Set-Location '$BackendDir'; $reloadPrefix python main.py"
+    $backendCmd = "Write-Host 'Legend backend (:8100)' -ForegroundColor Magenta; conda activate $ActiveConda; Set-Location '$BackendDir'; $reloadPrefix python main.py"
 } else {
-    $backendCmd = "Write-Host 'KnowIT backend (:8100)' -ForegroundColor Magenta; Set-Location '$BackendDir'; $reloadPrefix & '$Python' main.py"
+    $backendCmd = "Write-Host 'Legend backend (:8100)' -ForegroundColor Magenta; Set-Location '$BackendDir'; $reloadPrefix & '$Python' main.py"
 }
-$frontendCmd = "Write-Host 'KnowIT frontend (:5273)' -ForegroundColor Cyan; Set-Location '$FrontendDir'; npm run dev"
+$frontendCmd = "Write-Host 'Legend frontend (:5273)' -ForegroundColor Cyan; Set-Location '$FrontendDir'; npm run dev"
 
 $backend  = Start-Process powershell -ArgumentList "-NoExit","-Command",$backendCmd  -PassThru
 Start-Sleep -Seconds 2
@@ -274,7 +274,7 @@ try {
     }
 } finally {
     Write-Host ""
-    Write-Host "Stopping KnowIT testbed..."
+    Write-Host "Stopping Legend testbed..."
     Stop-Tree $backend.Id
     Stop-Tree $frontend.Id
     Write-Host "Stopped. (You can also run .\stop.ps1 anytime.)"

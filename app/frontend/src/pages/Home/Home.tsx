@@ -104,7 +104,7 @@ export default function Home() {
     <div className="kyc-home">
       <div className="page-header">
         <h1>Connect a codebase</h1>
-        <p>Paste a local path or Git URL — KnowIT parses it, builds a code graph, and indexes it for search.</p>
+        <p>Paste a local path or Git URL — Legend parses it, builds a code graph, and indexes it for search.</p>
       </div>
 
       <div className="card kyc-connect">

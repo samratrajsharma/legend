@@ -1,9 +1,9 @@
-"""Tests for knowit.parsing — Python (ast) and JS/TS (regex) extraction."""
+"""Tests for legend.parsing — Python (ast) and JS/TS (regex) extraction."""
 from __future__ import annotations
 
 import os
 
-from knowit.parsing import parse_file, parse_js, parse_python
+from legend.parsing import parse_file, parse_js, parse_python
 
 
 def _sym(pf, qualname):

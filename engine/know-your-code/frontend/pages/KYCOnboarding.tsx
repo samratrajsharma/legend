@@ -30,7 +30,7 @@ export default function KYCOnboarding({ repoId, embedded }: Props) {
   const head = !embedded && (
     <div className="page-header kyc-head">
       <div>
-        <div className="kyc-eyebrow">Know Your Code</div>
+        <div className="kyc-eyebrow">Legend</div>
         <h1>Onboarding tour</h1>
         <p>A guided walk through the codebase, from entry points to the core.</p>
       </div>

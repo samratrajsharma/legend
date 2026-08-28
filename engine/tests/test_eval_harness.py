@@ -1,10 +1,10 @@
-"""Tests for knowit.eval_harness — question loading, scoring, and the gate."""
+"""Tests for legend.eval_harness — question loading, scoring, and the gate."""
 from __future__ import annotations
 
 import json
 
-from knowit.eval_harness import _kw_coverage, load_questions, run_eval
-from knowit.models import Chunk, Retrieved
+from legend.eval_harness import _kw_coverage, load_questions, run_eval
+from legend.models import Chunk, Retrieved
 
 
 # --------------------------------------------------------------------------- #

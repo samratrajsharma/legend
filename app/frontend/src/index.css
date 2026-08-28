@@ -1,4 +1,4 @@
-/* ── Know Your Code design tokens ── */
+/* ── Legend design tokens ── */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 :root {
@@ -37,7 +37,7 @@
   --dash-glow: 0 0 0 1px rgba(255, 255, 255, 0.04);
   --color-surface: #141414;
 
-  /* KnowIT accent — Spotify green */
+  /* Legend accent — Spotify green */
   --kyc-accent: #1ED760;
   --kyc-accent-dim: rgba(30, 215, 96, 0.18);
 }
@@ -177,7 +177,7 @@ input, select, textarea { font-family: inherit; }
 .dash-loading::before {
   content: '';
   width: 48px; height: 48px;
-  background: url('/knowyourcode-icon.svg') center / contain no-repeat;
+  background: url('/legend-icon.svg') center / contain no-repeat;
   animation: spin 1.2s linear infinite;
   transform-origin: 50% 50%;
 }

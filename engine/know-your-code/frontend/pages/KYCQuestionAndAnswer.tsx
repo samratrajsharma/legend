@@ -14,7 +14,7 @@ export default function KYCQuestionAndAnswer() {
     <div>
       <div className="page-header kyc-head">
         <div>
-          <div className="kyc-eyebrow">Know Your Code</div>
+          <div className="kyc-eyebrow">Legend</div>
           <h1>Ask {repo?.name || 'this codebase'}</h1>
           <p>Ask anything about the code. Every answer cites the exact files and lines it came from.</p>
         </div>

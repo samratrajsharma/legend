@@ -1,7 +1,7 @@
-"""Tests for knowit.techdebt — dead code, duplicates, cycles, hotspots, god files."""
+"""Tests for legend.techdebt — dead code, duplicates, cycles, hotspots, god files."""
 from __future__ import annotations
 
-from knowit.techdebt import (_normalize_py, complexity_hotspots, dead_code,
+from legend.techdebt import (_normalize_py, complexity_hotspots, dead_code,
                              debt_summary, duplicate_pairs, god_files,
                              import_cycles, undocumented)
 

@@ -1,4 +1,4 @@
-# Know Your Code - backend requirements
+# Legend - backend requirements
 # Python 3.10+.  Install:  pip install -r requirements.txt
 #
 # Complete set for the running app (app/backend + the engine it uses). Only the

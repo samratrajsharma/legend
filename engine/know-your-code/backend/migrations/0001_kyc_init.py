@@ -1,4 +1,4 @@
-"""Know Your Code — initial tables (kyc_*).
+"""Legend — initial tables (kyc_*).
 
 Alembic revision. NOTE FOR THE MAINTAINER: set `down_revision` below to your current head
 (run `alembic heads` to find it) so this chains onto the host's migration history, then

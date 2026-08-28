@@ -1,8 +1,8 @@
-"""Tests for knowit.config.Config and knowit.models dataclasses."""
+"""Tests for legend.config.Config and legend.models dataclasses."""
 from __future__ import annotations
 
-from knowit.config import Config
-from knowit.models import Chunk, ParsedFile, RepoMeta, Retrieved, Symbol
+from legend.config import Config
+from legend.models import Chunk, ParsedFile, RepoMeta, Retrieved, Symbol
 
 
 def test_config_overrides_apply():

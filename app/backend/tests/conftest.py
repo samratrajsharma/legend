@@ -16,10 +16,10 @@ import pytest
 BACKEND = Path(__file__).resolve().parents[1]                 # app/backend
 ENGINE = (BACKEND / ".." / ".." / "engine").resolve()         # engine/
 if str(ENGINE) not in sys.path:
-    sys.path.insert(0, str(ENGINE))                           # so `import knowit...` resolves
+    sys.path.insert(0, str(ENGINE))                           # so `import legend...` resolves
 
 # No model configured => Ask returns needs_llm without any network calls.
-for k in ("KNOWIT_LLM_PROVIDER", "KNOWIT_LLM_MODEL", "KNOWIT_LLM_BASE_URL"):
+for k in ("LEGEND_LLM_PROVIDER", "LEGEND_LLM_MODEL", "LEGEND_LLM_BASE_URL"):
     os.environ.pop(k, None)
 
 SAMPLE_REPO = str((ENGINE / "sample_repo").resolve())
@@ -45,10 +45,10 @@ def _load_backend_app():
 @pytest.fixture(scope="session")
 def client(tmp_path_factory):
     data_dir = tmp_path_factory.mktemp("kyc_backend_data")
-    os.environ["KNOWIT_DATA_DIR"] = str(data_dir)
+    os.environ["LEGEND_DATA_DIR"] = str(data_dir)
     from fastapi.testclient import TestClient
     backend = _load_backend_app()
-    from knowit.config import Config
+    from legend.config import Config
     # Force BM25 so indexing never reaches for chromadb during tests.
     backend._engine_config = lambda: Config(
         embed_backend="bm25", data_dir=str(data_dir),

@@ -20,25 +20,25 @@ export interface TourStep { title: string; description: string; file_path?: stri
 export interface Tour { id?: string; generated_at?: string; steps: TourStep[]; }
 
 export const kycApi = {
-  listRepos: () => api.get<Repo[]>('/know-your-code/repos'),
+  listRepos: () => api.get<Repo[]>('/legend/repos'),
   createRepo: (data: { source: RepoSource; source_url?: string; name: string }) =>
-    api.post<Repo>('/know-your-code/repos', data),
+    api.post<Repo>('/legend/repos', data),
   uploadZip: (id: string, file: File) => {
     const fd = new FormData();
     fd.append('file', file);
-    return api.post<Repo>(`/know-your-code/repos/${id}/upload`, fd,
+    return api.post<Repo>(`/legend/repos/${id}/upload`, fd,
       { headers: { 'Content-Type': 'multipart/form-data' } });
   },
-  getRepo: (id: string) => api.get<Repo>(`/know-your-code/repos/${id}`),
-  deleteRepo: (id: string) => api.delete(`/know-your-code/repos/${id}`),
-  listFiles: (id: string) => api.get<FileNode[]>(`/know-your-code/repos/${id}/files`),
+  getRepo: (id: string) => api.get<Repo>(`/legend/repos/${id}`),
+  deleteRepo: (id: string) => api.delete(`/legend/repos/${id}`),
+  listFiles: (id: string) => api.get<FileNode[]>(`/legend/repos/${id}/files`),
   fileContent: (id: string, fileId: string) =>
     api.get<{ path: string; language: string; content: string }>(
-      `/know-your-code/repos/${id}/files/${fileId}/content`),
+      `/legend/repos/${id}/files/${fileId}/content`),
   askQuestion: (id: string, question: string, session_id?: string) =>
-    api.post<QAResponse>(`/know-your-code/repos/${id}/qa`, { question, session_id }),
-  qaHistory: (id: string) => api.get<QATurn[]>(`/know-your-code/repos/${id}/qa-history`),
-  getArchitecture: (id: string) => api.get<Architecture>(`/know-your-code/repos/${id}/architecture`),
-  generateTour: (id: string) => api.post<Tour>(`/know-your-code/repos/${id}/tour`, {}),
-  getTour: (id: string) => api.get<Tour>(`/know-your-code/repos/${id}/tour`),
+    api.post<QAResponse>(`/legend/repos/${id}/qa`, { question, session_id }),
+  qaHistory: (id: string) => api.get<QATurn[]>(`/legend/repos/${id}/qa-history`),
+  getArchitecture: (id: string) => api.get<Architecture>(`/legend/repos/${id}/architecture`),
+  generateTour: (id: string) => api.post<Tour>(`/legend/repos/${id}/tour`, {}),
+  getTour: (id: string) => api.get<Tour>(`/legend/repos/${id}/tour`),
 };

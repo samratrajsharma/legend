@@ -26,11 +26,11 @@ export default function KYCHome() {
     try {
       if (modal === 'git') {
         const r = await kycApi.createRepo({ source: 'git', source_url: url, name: name || url.split('/').pop() || 'repo' });
-        nav(`/app/know-your-code/repos/${r.data.id}`);
+        nav(`/app/legend/repos/${r.data.id}`);
       } else if (modal === 'upload' && file) {
         const r = await kycApi.createRepo({ source: 'upload', name: name || file.name.replace(/\.zip$/, '') });
         await kycApi.uploadZip(r.data.id, file);
-        nav(`/app/know-your-code/repos/${r.data.id}`);
+        nav(`/app/legend/repos/${r.data.id}`);
       }
     } catch (e: any) {
       setErr(e?.response?.data?.detail || 'Could not create the codebase.');
@@ -41,7 +41,7 @@ export default function KYCHome() {
     <div>
       <div className="page-header kyc-head">
         <div>
-          <div className="kyc-eyebrow">Know Your Code</div>
+          <div className="kyc-eyebrow">Legend</div>
           <h1>Map your codebase in minutes.</h1>
           <p>Connect a repository to ask questions in plain English, see how it fits together, and onboard engineers faster.</p>
         </div>
@@ -64,7 +64,7 @@ export default function KYCHome() {
       <div className="card">
         <div className="card-header">
           <h3>Recent codebases</h3>
-          <button className="btn btn--secondary btn--sm" onClick={() => nav('/app/know-your-code/repos')}>View all</button>
+          <button className="btn btn--secondary btn--sm" onClick={() => nav('/app/legend/repos')}>View all</button>
         </div>
         {loading ? (
           <div className="dash-loading">Loading…</div>

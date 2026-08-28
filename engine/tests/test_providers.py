@@ -1,10 +1,10 @@
-"""Tests for knowit.providers — model-string resolution and key/connection checks."""
+"""Tests for legend.providers — model-string resolution and key/connection checks."""
 from __future__ import annotations
 
-from knowit.providers import ORDER, PROVIDERS, key_present, resolve
+from legend.providers import ORDER, PROVIDERS, key_present, resolve
 # Aliased: importing the production `test_connection` under its own name would
 # make pytest try to collect it as a test case.
-from knowit.providers import test_connection as check_connection
+from legend.providers import test_connection as check_connection
 
 
 def test_resolve_prefixes_model():

@@ -1,8 +1,8 @@
-"""Tests for knowit.chunking — provenance chunks for code / module / doc."""
+"""Tests for legend.chunking — provenance chunks for code / module / doc."""
 from __future__ import annotations
 
-from knowit.chunking import _truncate, make_chunks
-from knowit.parsing import parse_file, parse_js
+from legend.chunking import _truncate, make_chunks
+from legend.parsing import parse_file, parse_js
 
 
 def test_chunk_kinds_and_counts(idx):

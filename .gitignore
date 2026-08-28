@@ -24,7 +24,7 @@ build/
 
 # ───────────── App runtime state & caches (tracked repos, Chroma index, timeline snapshots) ─────────────
 .cache/
-.knowit_cache/
+.legend_cache/
 *.log
 
 # ───────────── Secrets & local env ─────────────
@@ -37,3 +37,6 @@ build/
 Thumbs.db
 ~$*
 *.swp
+
+# bundled SPA for the wheel (produced by scripts/build.py)
+app/backend/web/

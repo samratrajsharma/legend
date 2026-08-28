@@ -1,4 +1,4 @@
-/* Shared Know Your Code styles. References the host design tokens (--dash-*, --brand-*)
+/* Shared Legend styles. References the host design tokens (--dash-*, --brand-*)
    defined in the host's src/index.css. Imported by every KYC page. */
 .kyc-head { display:flex; justify-content:space-between; align-items:flex-start; gap:16px; }
 .kyc-eyebrow { font-size:13px; font-weight:700; letter-spacing:.1em; text-transform:uppercase;

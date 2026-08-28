@@ -1,4 +1,4 @@
-# KnowIT — Vision Coverage Report
+# Legend — Vision Coverage Report
 
 *Audit of the original vision against the delivered system · all checks run on the bundled
 `sample_repo` (and a 3-commit git repo for Track) · 2026-05-31*
@@ -102,7 +102,7 @@ the unittest suite.
 | Configuration surface | ✅ | `config_map.py`, Overview | yaml/argparse/settings fixture |
 | Portable HTML export | ✅ | `export_site.py`, Portfolio | valid self-contained HTML |
 | Secret scanning | ✅ | `techdebt.secret_scan`, Intel | fixture key detected |
-| Runnable test suite (19 stdlib unittest tests) | ✅ | `tests/test_knowit.py` | `python -m unittest tests.test_knowit` passes |
+| Runnable test suite (19 stdlib unittest tests) | ✅ | `tests/test_legend.py` | `python -m unittest tests.test_legend` passes |
 
 ## Architecture layers (as originally envisioned)
 

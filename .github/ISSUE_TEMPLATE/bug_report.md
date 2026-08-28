@@ -12,12 +12,12 @@ A clear description of the bug.
 What you expected to happen instead.
 
 **Steps to reproduce**
-1. Point Know Your Code at: <!-- repo URL or a description of the local repo -->
+1. Point Legend at: <!-- repo URL or a description of the local repo -->
 2. Go to: <!-- which tab / endpoint -->
 3. See: <!-- the error or wrong output -->
 
 **Backend logs**
-Run with `KNOWIT_LOG_LEVEL=DEBUG` and paste any relevant output.
+Run with `LEGEND_LOG_LEVEL=DEBUG` and paste any relevant output.
 
 ```
 <paste logs here>

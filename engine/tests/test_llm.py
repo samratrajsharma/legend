@@ -1,11 +1,11 @@
-"""Tests for knowit.llm — graceful degradation when no model is configured.
+"""Tests for legend.llm — graceful degradation when no model is configured.
 
 These deliberately avoid the network: every assertion targets a no-model / empty
 short-circuit path so the suite stays offline and deterministic.
 """
 from __future__ import annotations
 
-from knowit.llm import explain_file, judge, synthesize
+from legend.llm import explain_file, judge, synthesize
 
 
 def test_synthesize_without_model():

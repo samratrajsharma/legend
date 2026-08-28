@@ -1,5 +1,5 @@
 # ─────────────────────────────────────────────────────────────
-# KnowIT — Phase 0 dependencies
+# Legend — Phase 0 dependencies
 # Python 3.10+ recommended.  Install:  pip install -r requirements.txt
 # ─────────────────────────────────────────────────────────────
 

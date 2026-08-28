@@ -1,6 +1,6 @@
-# Know Your Code — app
+# Legend — app
 
-A localhost-only React + FastAPI front-end for the `knowit` engine. Fully
+A localhost-only React + FastAPI front-end for the `legend` engine. Fully
 independent: its own ports, no auth, no database.
 
 ## Ports
@@ -26,7 +26,7 @@ First run takes a few minutes; later runs start in seconds.
 ```
 app/
 ├── backend/
-│   ├── app.py            # FastAPI routes — thin wrappers over knowit/*
+│   ├── app.py            # FastAPI routes — thin wrappers over legend/*
 │   ├── main.py           # uvicorn launcher
 │   ├── requirements.txt
 │   └── .env.example
@@ -39,7 +39,7 @@ app/
 └── README.md
 ```
 
-The backend imports the engine from `../engine/knowit/` and the codemap tool from
+The backend imports the engine from `../engine/legend/` and the codemap tool from
 `../diagrams/codemap/` via `sys.path.insert`. If you move them, update the two path
 constants at the top of `backend/app.py`.
 

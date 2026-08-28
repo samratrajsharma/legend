@@ -59,11 +59,11 @@ export default function ApiDb() {
         <div className="card">
           <div className="card-header"><h3>Nothing detected</h3></div>
           <p style={{ fontSize: 13, color: 'var(--dash-text-secondary)', lineHeight: 1.6, marginBottom: 8 }}>
-            This repository has no HTTP route decorators and no ORM models that KnowIT recognizes.
+            This repository has no HTTP route decorators and no ORM models that Legend recognizes.
             That's normal for CLIs, libraries, ML training scripts, or Streamlit / desktop apps.
           </p>
           <p style={{ fontSize: 12.5, color: 'var(--dash-text-muted)', lineHeight: 1.6 }}>
-            KnowIT looks for: <code>@app.get(…)</code>, <code>@app.post(…)</code>, <code>@router.put(…)</code>,
+            Legend looks for: <code>@app.get(…)</code>, <code>@app.post(…)</code>, <code>@router.put(…)</code>,
             <code>@app.route(…)</code> style decorators, and any class with a <code>__tablename__</code> attribute.
           </p>
         </div>

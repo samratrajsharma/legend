@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Verify the optional tree-sitter backend after installing it.
 
-The tree-sitter backend (engine/knowit/treesitter_parser.py) adds symbol + call
+The tree-sitter backend (engine/legend/treesitter_parser.py) adds symbol + call
 extraction for Go, Java, Rust, C#, Ruby, PHP, C and C++. It is OFF until you install
 the grammars, and it's written to degrade to `None` (caller falls back to plain-text
 indexing) on any grammar quirk rather than crash. This script proves it actually works
@@ -26,13 +26,13 @@ from __future__ import annotations
 import os
 import sys
 
-# make `import knowit...` work whether run from repo root or from engine/
+# make `import legend...` work whether run from repo root or from engine/
 _HERE = os.path.dirname(os.path.abspath(__file__))
 _ENGINE = os.path.dirname(_HERE)
 if _ENGINE not in sys.path:
     sys.path.insert(0, _ENGINE)
 
-from knowit import treesitter_parser as ts  # noqa: E402
+from legend import treesitter_parser as ts  # noqa: E402
 
 # Each fixture: a class/struct holding two functions where one calls the other, plus
 # (some languages) a free function. We assert the function names come through, and -

@@ -1,11 +1,11 @@
-"""Tests for knowit.track — git log, structural snapshots, and diffs over commits.
+"""Tests for legend.track — git log, structural snapshots, and diffs over commits.
 
 Uses the synthetic two-commit ``git_repo`` fixture; skips if git is unavailable.
 """
 from __future__ import annotations
 
-from knowit import track
-from knowit.config import Config
+from legend import track
+from legend.config import Config
 
 
 def _cfg(tmp_path):

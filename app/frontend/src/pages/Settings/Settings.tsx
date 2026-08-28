@@ -125,7 +125,7 @@ export default function Settings() {
             </label>
             <input className="set-input" type="password" value={apiKey} onChange={e => setApiKey(e.target.value)}
                    placeholder={sel.key_present ? '•••••••• (saved)' : sel.key_env} />
-            <p className="set-hint">Stored in know-your-code/app/backend/.env on this machine only.</p>
+            <p className="set-hint">Stored in legend/app/backend/.env on this machine only.</p>
           </>
         )}
 

@@ -15,7 +15,7 @@ export default function RepoCard({ repo, onChange }: { repo: Repo; onChange?: ()
   const s = repo.stats || {};
   const langs: string[] = Array.isArray(s.langs) ? s.langs : [];
   const st = STATUS[repo.status] || STATUS.indexing;
-  const open = () => nav(`/app/know-your-code/repos/${repo.id}`);
+  const open = () => nav(`/app/legend/repos/${repo.id}`);
   const del = async (e: React.MouseEvent) => {
     e.stopPropagation();
     if (!window.confirm(`Delete ${repo.name}? This cannot be undone.`)) return;
@@ -36,7 +36,7 @@ export default function RepoCard({ repo, onChange }: { repo: Repo; onChange?: ()
       <div className="chip-list kyc-card-chips">{langs.slice(0, 4).map((l) => <span key={l} className="chip">{l}</span>)}</div>
       <div className="kyc-card-actions" onClick={(e) => e.stopPropagation()}>
         <button className="btn btn--secondary btn--sm" onClick={open}>Open</button>
-        <button className="btn btn--secondary btn--sm" onClick={() => nav(`/app/know-your-code/repos/${repo.id}/tour`)}>Tour</button>
+        <button className="btn btn--secondary btn--sm" onClick={() => nav(`/app/legend/repos/${repo.id}/tour`)}>Tour</button>
         <button className="btn btn--danger btn--sm" disabled={busy} onClick={del}>Delete</button>
       </div>
     </div>

@@ -1,4 +1,4 @@
-<!-- Thanks for contributing to Know Your Code! -->
+<!-- Thanks for contributing to Legend! -->
 
 ## What & why
 <!-- What does this change do, and what problem does it solve? Link any related issue. -->

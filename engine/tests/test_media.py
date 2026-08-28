@@ -1,9 +1,9 @@
-"""Tests for knowit.media — slide decks, audio overview script, mind-map outline."""
+"""Tests for legend.media — slide decks, audio overview script, mind-map outline."""
 from __future__ import annotations
 
 import os
 
-from knowit.media import (audio_script, build_pptx, mindmap_markdown,
+from legend.media import (audio_script, build_pptx, mindmap_markdown,
                           script_to_text, slide_outline, synthesize_audio)
 
 

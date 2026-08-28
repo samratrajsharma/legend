@@ -1,6 +1,6 @@
-# Contributing to Know Your Code
+# Contributing to Legend
 
-Thanks for your interest in improving Know Your Code. It's a local-first codebase-intelligence
+Thanks for your interest in improving Legend. It's a local-first codebase-intelligence
 tool: point it at a repository and it parses the code, builds a symbol/call/import graph, and
 answers questions over it with hybrid (BM25 + semantic) retrieval. This guide gets you from a
 fresh clone to a passing test run and an open pull request.
@@ -8,8 +8,8 @@ fresh clone to a passing test run and an open pull request.
 ## Project layout
 
 ```
-engine/          the KnowIT engine — a pure-stdlib-core Python library (package: knowit)
-  knowit/          parsing, graph, chunking, retrieval, insights, techdebt, ...
+engine/          the Legend engine — a pure-stdlib-core Python library (package: legend)
+  legend/          parsing, graph, chunking, retrieval, insights, techdebt, ...
   tests/           pytest suite over a bundled sample_repo (BM25-only, offline)
   sample_repo/     tiny fixture repo the tests build an index over
   pyproject.toml   packaging (pip install -e engine)
@@ -46,7 +46,7 @@ http://localhost:8100/docs.
 To set up the pieces manually instead:
 
 ```bash
-# engine (editable install exposes the `knowit` package everywhere)
+# engine (editable install exposes the `legend` package everywhere)
 pip install -e engine
 
 # backend
@@ -111,5 +111,5 @@ type-check clean. Prefer a correct, well-tested small change over a broad one.
 ## Reporting bugs and requesting features
 
 Open an issue using the templates. For bugs, include the repo you pointed it at (or a minimal
-one), what you expected, what happened, and any backend log output (`KNOWIT_LOG_LEVEL=DEBUG`
+one), what you expected, what happened, and any backend log output (`LEGEND_LOG_LEVEL=DEBUG`
 for more detail).

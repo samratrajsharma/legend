@@ -98,7 +98,7 @@ export default function KYCRepoDetail() {
     <div>
       <div className="page-header kyc-head">
         <div>
-          <button className="kyc-back" onClick={() => nav('/app/know-your-code/repos')}>← Codebases</button>
+          <button className="kyc-back" onClick={() => nav('/app/legend/repos')}>← Codebases</button>
           <h1>{repo.name}</h1>
           <p>
             {statusLabel(repo)}

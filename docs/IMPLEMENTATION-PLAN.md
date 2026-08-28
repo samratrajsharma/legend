@@ -1,6 +1,6 @@
-# Know Your Code — Implementation Plan
+# Legend — Implementation Plan
 
-**Goal:** ship Know Your Code as a credible **open-source** codebase-intelligence tool.
+**Goal:** ship Legend as a credible **open-source** codebase-intelligence tool.
 No commercialization, no pivot — the current feature set stays. This plan takes the
 technical half of the August 2026 audit (Part I + Appendix D) and sequences it into
 phases. The business half of the audit (Part III: wedges, market, the "agent gate"
@@ -26,7 +26,7 @@ Every item cites its audit finding number so the source is traceable.
 *The minimum to put this on GitHub without embarrassment or hazard.*
 
 ### Security (untrusted-repo hardening)
-- [ ] **P0-1 · Path traversal (CRITICAL #3).** `engine/knowit/ingest.py` — `name_from_url`
+- [ ] **P0-1 · Path traversal (CRITICAL #3).** `engine/legend/ingest.py` — `name_from_url`
   passes `..` / `\` straight into `os.path.join`, so a crafted URL makes `_dest_for`
   resolve outside the cache and `_rm()` delete arbitrary folders. **Fix:** derive the
   clone folder from `sha1(canonical_url)`; keep the pretty name in metadata only; assert
@@ -47,14 +47,14 @@ Every item cites its audit finding number so the source is traceable.
 
 ### Open-source hygiene
 - [ ] **P0-6 · Add a `LICENSE`** (audit: none exists; MIT is the conventional default).
-- [ ] **P0-7 · Delete the dead code (#27).** Remove `engine/know-your-code/` (41 files,
-  a Django/Celery/Qdrant fork that can't import) and `engine/knowit/portfolio.py` (#5,
+- [ ] **P0-7 · Delete the dead code (#27).** Remove `engine/legend/` (41 files,
+  a Django/Celery/Qdrant fork that can't import) and `engine/legend/portfolio.py` (#5,
   fabricates claims). Decide on `engine/app.py` (Streamlit) — keep only if maintained.
-- [ ] **P0-8 · Fix broken references (#31, #32).** Either commit `knowyourcode-frontend/`
+- [ ] **P0-8 · Fix broken references (#31, #32).** Either commit `legend-frontend/`
   and `docs/how-it-works.html`, or remove the `README.md` / `run.ps1 -Website` references
   to them.
 - [ ] **P0-9 · De-brand from Orchestraty.** Replace `orchestraty-icon.svg`,
-  `orc-spinner.ts`, and stray "orchestrat" strings with Know Your Code's own assets — this
+  `orc-spinner.ts`, and stray "orchestrat" strings with Legend's own assets — this
   is an independent project now.
 - [ ] **P0-10 · CI (#33, part of #1).** GitHub Actions running the existing 196 engine
   tests plus the new P0-5 security tests on every push.
@@ -146,8 +146,8 @@ behave; concurrent asks don't cross model config.
   httpx/TestClient suite: the `_require_idx` state machine (connect → indexing → ready →
   restart → rehydrate), 404/409 paths, one contract test per route, SSE, report export.
   Point pytest at both roots.
-- [ ] **P4-2 · Packaging (#30).** Make `knowit` pip-installable (or remove the
-  `pip install knowit` claim from the marketing copy).
+- [ ] **P4-2 · Packaging (#30).** Make `legend` pip-installable (or remove the
+  `pip install legend` claim from the marketing copy).
 - [ ] **P4-3 · Cross-platform launcher (#33).** A `run.sh` and a `Dockerfile` so the
   documented non-Windows path actually works.
 - [ ] **P4-4 · Logging (#29).** Structured backend logging (currently 2 `print`s in
@@ -165,6 +165,6 @@ behave; concurrent asks don't cross model config.
 
 The audit's Part III strategy — the "agent merge gate," cross-agent conflict detection,
 code-scoped permissions, entropy telemetry as a product, local-first-vs-fleet, and all
-monetization — is **not** part of this plan. Know Your Code stays an open-source
+monetization — is **not** part of this plan. Legend stays an open-source
 codebase-understanding tool. Those directions remain available in the audit if that ever
 changes.

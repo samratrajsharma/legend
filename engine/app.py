@@ -1,4 +1,4 @@
-"""KnowIT — Streamlit harness (Phases 0–3 + Teach + deepened engine).
+"""Legend — Streamlit harness (Phases 0–3 + Teach + deepened engine).
 
     streamlit run app.py
 
@@ -19,22 +19,22 @@ except Exception:
     pd = None
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from knowit.config import Config                          # noqa: E402
-from knowit.pipeline import build_index, recent_repos     # noqa: E402
-from knowit.eval_harness import load_questions, run_eval  # noqa: E402
-from knowit.retrieval import assemble_context             # noqa: E402
-from knowit import insights, diagram, llm, providers, teach, track, techdebt, engmemory, media, research, portfolio  # noqa: E402
-from knowit import progress, coverage, impact, config_map, export_site  # noqa: E402
+from legend.config import Config                          # noqa: E402
+from legend.pipeline import build_index, recent_repos     # noqa: E402
+from legend.eval_harness import load_questions, run_eval  # noqa: E402
+from legend.retrieval import assemble_context             # noqa: E402
+from legend import insights, diagram, llm, providers, teach, track, techdebt, engmemory, media, research, portfolio  # noqa: E402
+from legend import progress, coverage, impact, config_map, export_site  # noqa: E402
 
 APP_DIR = os.path.dirname(os.path.abspath(__file__))
-DEFAULT_REPO = os.environ.get("KNOWIT_REPO") or os.path.join(APP_DIR, "sample_repo")
+DEFAULT_REPO = os.environ.get("LEGEND_REPO") or os.path.join(APP_DIR, "sample_repo")
 DEFAULT_QUESTIONS = os.path.join(APP_DIR, "eval", "questions.example.json")
 DATA_DIR = Config().data_dir
 BACKENDS = ["auto", "hybrid", "bm25", "chroma"]
 VIA = {"lexical": "🔤 keyword", "semantic": "🔎 semantic", "both": "🔎🔤 both", "graph": "🕸 graph"}
 LANG_HL = {"python": "python", "javascript": "javascript", "typescript": "typescript", "markdown": "markdown"}
 
-st.set_page_config(page_title="KnowIT", layout="wide")
+st.set_page_config(page_title="Legend", layout="wide")
 
 
 @st.cache_resource(show_spinner=False)
@@ -69,7 +69,7 @@ def show_graph(dot):
 
 # ===================== sidebar =====================
 with st.sidebar:
-    st.header("KnowIT")
+    st.header("Legend")
     source = st.text_input("Repo path or git URL", value=DEFAULT_REPO)
     rec = [r["source"] for r in recent_repos(DATA_DIR)]
     if rec:
@@ -96,7 +96,7 @@ with st.sidebar:
         if not providers.key_present(provider):
             st.warning(f"Set `{p['key_env']}` in your environment / .env.")
     else:
-        model = st.text_input("Raw litellm model (optional)", value=os.environ.get("KNOWIT_LLM_MODEL", ""))
+        model = st.text_input("Raw litellm model (optional)", value=os.environ.get("LEGEND_LLM_MODEL", ""))
     full_model, extra = providers.resolve(provider, model, base_url)
     if provider and model and st.button("Test connection"):
         with st.spinner("Pinging the model…"):
@@ -106,20 +106,20 @@ with st.sidebar:
     if st.button("Rebuild index"):
         _build.clear()
         st.rerun()
-    st.caption("Index is disk-cached; relaunch is fast. Set KNOWIT_REPO to boot into your own repo.")
+    st.caption("Index is disk-cached; relaunch is fast. Set LEGEND_REPO to boot into your own repo.")
 
 # ===================== build =====================
 try:
     with st.spinner(f"Indexing {source} …"):
         idx = get_index(source, backend, full_model, extra, topk)
 except Exception as e:
-    st.title("KnowIT")
+    st.title("Legend")
     st.error(f"Could not build the index for `{source}`.")
     st.exception(e)
     st.stop()
 
 s = idx.stats()
-st.title("KnowIT")
+st.title("Legend")
 st.caption(f"**{s['repo']}** · commit `{s['commit']}` · retrieval **{s['retriever']}** · "
            f"answers: {('LLM (' + full_model + ')') if full_model else 'context-only'}")
 
@@ -135,7 +135,7 @@ with tabs[0]:
     c[1].metric("Symbols", s["symbols"])
     c[2].metric("Graph edges", s["graph_edges"])
     c[3].metric("Chunks", s["chunks"])
-    with st.expander("How KnowIT built this (the pipeline)"):
+    with st.expander("How Legend built this (the pipeline)"):
         st.markdown(
             f"1. **Ingest** — `{s['repo']}` @ `{s['commit']}`, {s['files_parsed']} files.\n"
             f"2. **Parse** → **{s['symbols']} symbols** (errors: {s['parse_errors']}).\n"
@@ -323,7 +323,7 @@ with tabs[4]:
             st.markdown("### Answer")
             st.write(res["answer"])
         else:
-            st.info("No LLM configured — showing the grounded context KnowIT retrieved. "
+            st.info("No LLM configured — showing the grounded context Legend retrieved. "
                     "Pick a provider in the sidebar for a written answer.")
         st.markdown(f"### Sources ({len(res['retrieved'])})")
         for r in res["retrieved"]:
@@ -442,7 +442,7 @@ with tabs[6]:
     log = track.git_log(path, 40)
     if len(log) < 2:
         st.info("Track needs a **git repo with at least two commits**. Point the sidebar / "
-                "`KNOWIT_REPO` at a git repository, or run "
+                "`LEGEND_REPO` at a git repository, or run "
                 "`python scripts/make_demo_history.py` and open the folder it prints.")
     else:
         with st.expander("Recent commits"):
@@ -693,7 +693,7 @@ with tabs[9]:
 # ---------------- Portfolio (Phase 8) ----------------
 with tabs[10]:
     st.subheader("Portfolio")
-    st.caption("Turn what KnowIT knows into shareable artifacts." +
+    st.caption("Turn what Legend knows into shareable artifacts." +
                ("" if full_model else "  Set an LLM provider for polished prose; "
                 "otherwise you get a solid structural draft."))
     labels = {"report": "Project report", "blog": "Blog post", "resume": "Résumé bullets",

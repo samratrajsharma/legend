@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""Create a tiny git repo with history so you can try KnowIT's Track tab.
+"""Create a tiny git repo with history so you can try Legend's Track tab.
 
     python scripts/make_demo_history.py [dest_dir]
-Then point KnowIT (sidebar) at the printed folder and open Track.
+Then point Legend (sidebar) at the printed folder and open Track.
 """
 import os
 import subprocess
@@ -27,8 +27,8 @@ def main(dest="_demo_history"):
         run(["git", "commit", "-qm", msg])
 
     run(["git", "init", "-q"])
-    run(["git", "config", "user.email", "demo@knowit"])
-    run(["git", "config", "user.name", "KnowIT Demo"])
+    run(["git", "config", "user.email", "demo@legend"])
+    run(["git", "config", "user.name", "Legend Demo"])
 
     write("model.py", "from data import load\n\n\nclass Net:\n    def forward(self, x):\n        return x\n")
     write("data.py", "def load(path):\n    return open(path).read()\n")
@@ -46,7 +46,7 @@ def main(dest="_demo_history"):
     commit("c3: add api entry point")
 
     print("Demo git repo created at:", dest)
-    print("Point KnowIT at it (sidebar) and open the Track tab.")
+    print("Point Legend at it (sidebar) and open the Track tab.")
 
 
 if __name__ == "__main__":

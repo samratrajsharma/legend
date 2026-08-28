@@ -4,9 +4,9 @@ from __future__ import annotations
 
 from collections import Counter
 
-from knowit.index import BM25Retriever, tokenize
-from knowit.retrieval import assemble_context
-from knowit import techdebt
+from legend.index import BM25Retriever, tokenize
+from legend.retrieval import assemble_context
+from legend import techdebt
 
 
 class _C:
@@ -123,7 +123,7 @@ def test_ask_does_not_mutate_config(idx):
 def test_cache_rejects_unsigned_and_tampered_pickles(tmp_path):
     import os
     import pickle as _pickle
-    from knowit import pipeline
+    from legend import pipeline
     d = str(tmp_path)
     secret = pipeline._cache_secret(d)
     p = os.path.join(d, "cache", "c.pkl")

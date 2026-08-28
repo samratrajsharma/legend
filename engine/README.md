@@ -1,8 +1,8 @@
-# KnowIT
+# Legend
 
 Ingest a codebase, understand it, learn it, and track how it evolves.
-See `KnowIT-Plan.md` (strategy), `KnowIT-Phased-Plan.docx` (build plan), and
-`KnowIT-Technical-Implementation.docx` / `docs/` (the ~116-page technical reference).
+See `Legend-Plan.md` (strategy), `Legend-Phased-Plan.docx` (build plan), and
+`Legend-Technical-Implementation.docx` / `docs/` (the ~116-page technical reference).
 
 Implemented: **Phases 0–8** (the full roadmap) — Foundations, Understand, Teach, Deepen Understanding, Track,
 Engineering Intelligence, **Learning Media**, **Research Mode**, and **Portfolio Mode** — on a hybrid retrieval engine with
@@ -29,7 +29,7 @@ multi-provider LLMs and a disk cache.
 - **Research Mode** — detects papers the repo references (arXiv ids / DOIs), looks up arXiv
   metadata, and (with an LLM) builds comparison matrices, repo-grounded implementation plans,
   and novelty notes.
-- **Portfolio Mode** — generates shareable artifacts from everything KnowIT knows: a project
+- **Portfolio Mode** — generates shareable artifacts from everything Legend knows: a project
   report, a technical blog post, résumé bullets, a LinkedIn post, and a paper draft (.md).
 - **Eval harness** — scores a question set, reports the **≥80% gate**.
 
@@ -53,7 +53,7 @@ TTS libs (audio) auto-activate when installed.
 ## Testing
 
 ```bash
-python -m unittest tests.test_knowit       # KnowIT's 19-test suite; offline, no secrets
+python -m unittest tests.test_legend       # Legend's 19-test suite; offline, no secrets
 # (if you use pytest, `pytest tests/` runs this plus any pytest-style tests)
 ```
 
@@ -72,7 +72,7 @@ cp .env.example .env              # optional: pick a provider + key for answers
 streamlit run app.py
 ```
 
-Auto-builds (and disk-caches) the index on launch (bundled `sample_repo`, or `KNOWIT_REPO`).
+Auto-builds (and disk-caches) the index on launch (bundled `sample_repo`, or `LEGEND_REPO`).
 Tabs: Overview, Files, Diagrams, API & DB, Ask, Learn, Track, Intel, Media, Research, **Portfolio**, Eval.
 
 ## Headless eval
@@ -85,7 +85,7 @@ python scripts/run_eval.py sample_repo eval/questions.example.json   # 10/10 (BM
 
 ```
 app.py                       Streamlit harness (single entry point)
-knowit/
+legend/
   config.py  models.py       settings + dataclasses
   providers.py               LLM provider registry + resolve + connection test
   ingest.py  parsing.py      load/walk/git ; ast (Python) + regex (JS/TS)

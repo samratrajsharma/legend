@@ -14,7 +14,7 @@ export default function KYCArchitecture() {
     <div>
       <div className="page-header kyc-head">
         <div>
-          <div className="kyc-eyebrow">Know Your Code</div>
+          <div className="kyc-eyebrow">Legend</div>
           <h1>Architecture</h1>
           <p>How {repo?.name || 'the codebase'} fits together — files are nodes, imports are edges. Hover to trace dependencies, click a node for detail.</p>
         </div>

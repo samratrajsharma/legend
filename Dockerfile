@@ -1,7 +1,7 @@
-# Know Your Code — backend API image (the KnowIT engine + FastAPI).
+# Legend — backend API image (the Legend engine + FastAPI).
 #
-#   docker build -t knowyourcode .
-#   docker run --rm -p 8100:8100 -v kyc-data:/data knowyourcode
+#   docker build -t legend .
+#   docker run --rm -p 8100:8100 -v kyc-data:/data legend
 #
 # Serves the REST API on :8100 (interactive docs at /docs). Repo indexing, the code
 # graph and BM25 retrieval work out of the box; set provider keys via -e to enable
@@ -26,11 +26,11 @@ COPY engine/ ./engine/
 COPY app/backend/ ./app/backend/
 COPY diagrams/ ./diagrams/
 
-# Bind on all interfaces inside the container (main.py honours KNOWIT_HOST); the
+# Bind on all interfaces inside the container (main.py honours LEGEND_HOST); the
 # TrustedHost middleware still only accepts localhost Host headers, so reach it as
 # http://localhost:8100 from the host. Persist indexes/caches on a volume.
-ENV KNOWIT_HOST=0.0.0.0 \
-    KNOWIT_DATA_DIR=/data
+ENV LEGEND_HOST=0.0.0.0 \
+    LEGEND_DATA_DIR=/data
 VOLUME ["/data"]
 EXPOSE 8100
 

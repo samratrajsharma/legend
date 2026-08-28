@@ -1,0 +1,5 @@
+# The built SPA is a generated artifact (gitignored), but it must ride along in the
+# sdist/wheel so `pip install legend` / `uvx legend` serve the UI. Run scripts/build.py first.
+recursive-include app/backend/web *
+include LICENSE
+include README.md

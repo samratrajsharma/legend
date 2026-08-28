@@ -9,7 +9,7 @@ labels: enhancement
 What are you trying to do that's hard or impossible today?
 
 **Proposed solution**
-What you'd like Know Your Code to do.
+What you'd like Legend to do.
 
 **Alternatives considered**
 Other approaches you thought about, and why they fall short.

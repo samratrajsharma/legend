@@ -1,7 +1,7 @@
-"""Tests for knowit.index — tokenizer, stemmer, and the BM25 retriever."""
+"""Tests for legend.index — tokenizer, stemmer, and the BM25 retriever."""
 from __future__ import annotations
 
-from knowit.index import BM25Retriever, _stem, tokenize
+from legend.index import BM25Retriever, _stem, tokenize
 
 
 def test_tokenize_splits_camel_and_snake():

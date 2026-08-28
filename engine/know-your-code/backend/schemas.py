@@ -1,4 +1,4 @@
-"""Pydantic v2 request/response models for the Know Your Code routes."""
+"""Pydantic v2 request/response models for the Legend routes."""
 from __future__ import annotations
 from datetime import datetime
 from typing import Literal, Optional

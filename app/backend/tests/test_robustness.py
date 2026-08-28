@@ -50,7 +50,7 @@ def test_disconnect_clears_codemap_cache(client, ready_repo):
 
 # ── T1-4: an LLM failure is an error, not a 200 with the sentinel as answer ──
 def test_ask_llm_failure_is_error_not_fake_answer(client, ready_repo, monkeypatch):
-    from knowit.pipeline import RepoIndex
+    from legend.pipeline import RepoIndex
     # Simulate the LLM layer's graceful-degradation sentinel (used_llm False).
     monkeypatch.setattr(
         RepoIndex, "ask",
@@ -81,5 +81,5 @@ def test_persist_env_rejects_newline_injection(client):
     import app as backend
     import pytest as _pytest
     with _pytest.raises(Exception) as ei:
-        backend._persist_env({"KNOWIT_LLM_MODEL": "gpt\nINJECTED=1"})
+        backend._persist_env({"LEGEND_LLM_MODEL": "gpt\nINJECTED=1"})
     assert getattr(ei.value, "status_code", None) == 400

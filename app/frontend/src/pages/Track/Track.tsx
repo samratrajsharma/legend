@@ -130,7 +130,7 @@ export default function Track() {
         <div className="card">
           <div className="card-header"><h3>What a structural diff gives you</h3></div>
           <p className="track__lead">
-            This is not a text diff. KnowIT re-indexes the codebase at both commits and compares the
+            This is not a text diff. Legend re-indexes the codebase at both commits and compares the
             structures, so you get what actually changed in the architecture rather than which lines moved.
           </p>
           <div className="track__what">

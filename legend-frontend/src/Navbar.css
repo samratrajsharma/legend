@@ -1,0 +1,41 @@
+.kn-nav {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 1000;
+  height: var(--nav-height);
+  background: rgba(10, 10, 10, 0.82);
+  backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+  border-bottom: 1px solid transparent;
+  transition: border-color .3s, box-shadow .3s;
+}
+.kn-nav--scrolled { border-bottom-color: var(--color-border); box-shadow: 0 1px 12px rgba(0,0,0,.5); }
+.kn-nav__inner {
+  max-width: 1200px; margin: 0 auto; padding: 0 24px; height: 100%;
+  display: flex; align-items: center; gap: 32px;
+}
+.kn-nav__brand { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+.kn-nav__mark {
+  width: 18px; height: 18px; border-radius: 5px;
+  background: linear-gradient(135deg, #1DB954, #5BE88C);
+  box-shadow: 0 0 12px rgba(29,185,84,.5);
+}
+.kn-nav__name { font-size: 16px; font-weight: 700; letter-spacing: -0.02em; color: var(--color-text); }
+
+.kn-nav__links { display: flex; align-items: center; gap: 4px; list-style: none; flex: 1; }
+.kn-nav__links a {
+  display: block; padding: 8px 12px; border-radius: 8px;
+  font-size: 14px; font-weight: 500; color: var(--color-text-secondary);
+  transition: color .15s, background .15s; white-space: nowrap;
+}
+.kn-nav__links a:hover { color: var(--color-text); background: rgba(29,185,84,.06); }
+
+.kn-nav__cta { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+.kn-nav__ghost { font-size: 14px; font-weight: 500; color: var(--color-text-secondary); padding: 8px 12px; border-radius: 8px; transition: color .15s, background .15s; }
+.kn-nav__ghost:hover { color: var(--color-text); background: rgba(255,255,255,.04); }
+.kn-nav__btn {
+  display: inline-flex; align-items: center; padding: 9px 20px;
+  background: var(--color-primary); color: #fff;
+  font-size: 14px; font-weight: 600; border-radius: 100px; white-space: nowrap;
+  transition: background .15s, transform .15s, box-shadow .15s;
+}
+.kn-nav__btn:hover { background: var(--color-primary-dark); transform: translateY(-1px); box-shadow: 0 6px 20px rgba(29,185,84,.3); }
+
+@media (max-width: 780px) { .kn-nav__links { display: none; } }

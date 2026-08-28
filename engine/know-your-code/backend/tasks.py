@@ -1,4 +1,4 @@
-"""Celery tasks for Know Your Code — run on the host's existing Celery app. Long-running
+"""Celery tasks for Legend — run on the host's existing Celery app. Long-running
 work (cloning, parsing, embedding) lives here; routes only enqueue."""
 from __future__ import annotations
 import asyncio

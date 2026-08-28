@@ -1,0 +1,188 @@
+--- a/app/backend/app.py
++++ b/app/backend/app.py
+@@ -617,6 +617,57 @@
+     return data
+ 
+ 
++# ── explanation cache — repeat file/function explains are instant and free ──
++# Keyed by (kind, repo, path, [symbol], model, content-hash), so an edited file
++# or a changed model misses the cache and re-generates; identical repeats hit it.
++_EXPL_MEM: dict = {}
++
++
++def _expl_dir() -> Path:
++    d = Path(os.environ.get("KNOWIT_DATA_DIR", str(HERE / ".cache"))) / "explanations"
++    d.mkdir(parents=True, exist_ok=True)
++    return d
++
++
++def _sha(s: str) -> str:
++    return hashlib.sha1((s or "").encode("utf-8", "replace")).hexdigest()
++
++
++def _expl_key(*parts) -> str:
++    h = hashlib.sha1()
++    for p in parts:
++        h.update(str(p).encode("utf-8", "replace"))
++        h.update(b"\x00")
++    return h.hexdigest()
++
++
++def _expl_get(key: str):
++    if key in _EXPL_MEM:
++        return _EXPL_MEM[key]
++    try:
++        import json
++        f = _expl_dir() / f"{key}.json"
++        if f.exists():
++            txt = json.loads(f.read_text(encoding="utf-8")).get("text")
++            _EXPL_MEM[key] = txt
++            return txt
++    except Exception:
++        pass
++    return None
++
++
++def _expl_set(key: str, text: str, meta: dict = None):
++    _EXPL_MEM[key] = text
++    try:
++        import json
++        import time
++        (_expl_dir() / f"{key}.json").write_text(
++            json.dumps({"text": text, "at": time.time(), **(meta or {})}, ensure_ascii=False),
++            encoding="utf-8")
++    except Exception:
++        pass
++
++
+ # ── LLM-powered file explanation (for the deep-dive's "LLM" tab) ──
+ def _detailed_explain(pf, summary: dict, model: str, extra: dict) -> str:
+     """Produce an in-depth, sectioned walkthrough of one file. Sends the full
+@@ -659,7 +710,7 @@
+ 
+ 
+ @app.get("/api/v1/repos/{rid}/files/explain")
+-def file_explain(rid: str, file: str, provider: str = "", model: str = "", base_url: str = "") -> dict:
++def file_explain(rid: str, file: str, provider: str = "", model: str = "", base_url: str = "", refresh: int = 0) -> dict:
+     """LLM explanation of one file. Uses engine's llm.explain_file() which
+     sends a curated summary + source excerpt to the configured provider."""
+     idx = _require_idx(rid)
+@@ -678,11 +729,17 @@
+             "reason": "Open AI settings (the sidebar status pill, or the Settings page) to connect a local Ollama model or a provider key, then re-open this tab.",
+         }
+     summary = insights.file_summary(idx, pf.file) or {}
++    ckey = _expl_key("file", rid, pf.file, full, _sha(pf.text or ""))
++    if not refresh:
++        hit = _expl_get(ckey)
++        if hit is not None:
++            return {"explanation": hit, "used_llm": True, "reason": None, "cached": True}
+     try:
+         text = _detailed_explain(pf, summary, full, extra)
+     except Exception as e:
+         raise HTTPException(500, f"LLM explain failed: {type(e).__name__}: {e}")
+-    return {"explanation": text, "used_llm": True, "reason": None}
++    _expl_set(ckey, text, {"file": pf.file, "model": full})
++    return {"explanation": text, "used_llm": True, "reason": None, "cached": False}
+ 
+ 
+ # ── LLM-powered single-function / symbol explanation ─────────────
+@@ -734,7 +791,7 @@
+ 
+ @app.get("/api/v1/repos/{rid}/functions/explain")
+ def function_explain(rid: str, file: str, symbol: str,
+-                     provider: str = "", model: str = "", base_url: str = "") -> dict:
++                     provider: str = "", model: str = "", base_url: str = "", refresh: int = 0) -> dict:
+     """LLM explanation of ONE function/method/class + its callers/callees from the code graph.
+     Returns the symbol's code + relations even with no model configured (explanation=None)."""
+     idx = _require_idx(rid)
+@@ -772,12 +829,20 @@
+         payload.update({"explanation": None, "used_llm": False,
+                         "reason": "Open AI settings to connect a local Ollama model or a provider key, then re-open."})
+         return payload
++    ckey = _expl_key("fn", rid, pf.file, sym.qualname, full, _sha(payload["code"]))
++    if not refresh:
++        hit = _expl_get(ckey)
++        if hit is not None:
++            payload.update({"explanation": hit, "used_llm": True, "reason": None, "cached": True})
++            return payload
+     try:
+         payload["explanation"] = _explain_function(sym, pf, callers, callees, full, extra)
+         payload["used_llm"] = True
+         payload["reason"] = None
+     except Exception as e:
+         raise HTTPException(500, f"LLM explain failed: {type(e).__name__}: {e}")
++    _expl_set(ckey, payload["explanation"], {"file": pf.file, "symbol": sym.qualname, "model": full})
++    payload["cached"] = False
+     return payload
+ 
+ 
+@@ -1408,34 +1473,4 @@
+     idx = _require_idx(rid)
+     if req.kind not in ("decisions", "errors", "memory"):
+         raise HTTPException(400, "kind must be decisions|errors|memory")
+-    entry = engmemory.add(idx.config, idx.meta.name, req.kind,
+-                           {"title": req.title, "body": req.body})
+-    return {"ok": True, "entry": entry}
+-
+-@app.delete("/api/v1/repos/{rid}/intel/memory/{kind}/{eid}")
+-def intel_memory_del(rid: str, kind: str, eid: str) -> dict:
+-    idx = _require_idx(rid)
+-    if kind not in ("decisions", "errors", "memory"):
+-        raise HTTPException(400, "kind must be decisions|errors|memory")
+-    engmemory.delete(idx.config, idx.meta.name, kind, eid)
+-    return {"ok": True}
+-
+-@app.get("/api/v1/repos/{rid}/intel/impact")
+-def intel_impact(rid: str, symbol: str) -> dict:
+-    idx = _require_idx(rid)
+-    try:
+-        # Engine API: impact_of(idx, node_id) — node_id is the full graph node id
+-        # (e.g. "model.py::Detector.predict"). The frontend already passes that.
+-        return impact.impact_of(idx, symbol)
+-    except Exception as e:
+-        raise HTTPException(500, f"Impact analysis failed: {type(e).__name__}: {e}")
+-
+-@app.get("/api/v1/repos/{rid}/intel/coverage")
+-def intel_coverage(rid: str) -> dict:
+-    idx = _require_idx(rid)
+-    try:
+-        # Engine API: coverage_summary(idx) — returns test files, tested/total
+-        # counts, ratio, and a top-N untested-by-complexity list.
+-        return coverage.coverage_summary(idx)
+-    except Exception as e:
+-        raise HTTPException(500, f"Coverage analysis failed: {type(e).__name__}: {e}")
++    e
+\ No newline at end of file
+--- a/app/frontend/src/api/client.ts
++++ b/app/frontend/src/api/client.ts
+@@ -96,7 +96,7 @@
+   line_start: number; line_end: number; complexity: number | null;
+   docstring: string; code: string;
+   callers: FnCall[]; callees: FnCall[];
+-  explanation: string | null; used_llm: boolean; reason?: string | null;
++  explanation: string | null; used_llm: boolean; reason?: string | null; cached?: boolean;
+ };
+ 
+ export const kycApi = {
+@@ -131,9 +131,9 @@
+     api.get<CodemapData>(`/repos/${rid}/codemap/data`, { params: { refresh } }),
+ 
+   // LLM-powered file explanation (for the deep-dive's "LLM" tab)
+-  explainFile: (rid: string, file: string) =>
+-    api.get<{ explanation: string | null; used_llm: boolean; reason: string | null }>(`/repos/${rid}/files/explain`, { params: { file } }),
+-  explainFunction: (rid: string, file: string, symbol: string, override?: { provider?: string; model?: string; base_url?: string }) =>
++  explainFile: (rid: string, file: string, refresh = 0) =>
++    api.get<{ explanation: string | null; used_llm: boolean; reason: string | null; cached?: boolean }>(`/repos/${rid}/files/explain`, { params: { file, refresh } }),
++  explainFunction: (rid: string, file: string, symbol: string, override?: { provider?: string; model?: string; base_url?: string; refresh?: number }) =>
+     api.get<FunctionExplainResponse>(`/repos/${rid}/functions/explain`, { params: { file, symbol, ...(override || {}) } }),
+ 
+   // Graph nodes — still needed by Intel/Impact symbol picker.
+@@ -167,6 +167,4 @@
+     api.post(`/repos/${rid}/intel/memory/add`, { kind, title, body }),
+   intelMemoryDel:(rid: string, kind: string, eid: string) =>
+     api.delete(`/repos/${rid}/intel/memory/${kind}/${eid}`),
+-  intelImpact:   (rid: string, symbol: string) => api.get<any>(`/repos/${rid}/intel/impact`, { params: { symbol } }),
+-  intelCoverage: (rid: string) => api.get<any>(`/repos/${rid}/intel/coverage`),
+-};
++  intelImpact:   (rid: string, s
+\ No newline at end of file

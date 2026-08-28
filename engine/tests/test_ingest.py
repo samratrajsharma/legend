@@ -1,11 +1,11 @@
-"""Tests for knowit.ingest — repo metadata, file walking, and source resolution."""
+"""Tests for legend.ingest — repo metadata, file walking, and source resolution."""
 from __future__ import annotations
 
 import os
 
 import pytest
 
-from knowit.ingest import clone_or_local, ingest, list_files, repo_meta
+from legend.ingest import clone_or_local, ingest, list_files, repo_meta
 
 
 def test_repo_meta_local_non_git(sample_repo_path):

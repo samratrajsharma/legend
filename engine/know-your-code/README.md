@@ -1,4 +1,4 @@
-# Know Your Code — Orchestraty module
+# Legend — Orchestraty module
 
 Plug-and-play **codebase intelligence** for Orchestraty. Connect a Git repo or a zip, the
 module indexes it (symbols + embeddings), and users can **ask questions** (RAG with cited
@@ -16,8 +16,8 @@ host's CSS classes and design tokens.
 From inside `ai-operating-system/`:
 
 ```bash
-cp -r /path/to/know-your-code .
-cd know-your-code
+cp -r /path/to/legend .
+cd legend
 ./integrate.sh
 ```
 
@@ -27,10 +27,10 @@ cd know-your-code
 |---------------------------|---------------------------------------------------|
 | `backend/*` (no `migrations/`) | `core/modules/know_your_code/`  ← underscores, Python pkg |
 | `backend/migrations/*.py` | `alembic/versions/`                               |
-| `frontend/*`              | `frontend/Frontend/src/modules/know-your-code/`   |
+| `frontend/*`              | `frontend/Frontend/src/modules/legend/`   |
 
 > The **backend** folder is `know_your_code` (underscores) so `core.modules.know_your_code`
-> imports work. The **frontend** folder is `know-your-code` (hyphens) and uses relative TS
+> imports work. The **frontend** folder is `legend` (hyphens) and uses relative TS
 > imports. `integrate.sh` handles both.
 
 ---
@@ -48,7 +48,7 @@ from core.modules.know_your_code.routes import router as know_your_code_router
 In the route-mounting section:
 
 ```python
-app.include_router(know_your_code_router, prefix="/api/v1", tags=["know-your-code"])
+app.include_router(know_your_code_router, prefix="/api/v1", tags=["legend"])
 ```
 
 ### 2b. Register the frontend routes
@@ -56,7 +56,7 @@ app.include_router(know_your_code_router, prefix="/api/v1", tags=["know-your-cod
 In `frontend/Frontend/src/AppRouter.tsx`:
 
 ```tsx
-import { kycRoutes } from './modules/know-your-code/routes';
+import { kycRoutes } from './modules/legend/routes';
 ```
 
 Inside the **protected `/app` route**'s children (next to the other module routes):
@@ -71,7 +71,7 @@ In `frontend/Frontend/src/components/Navbar/Navbar.tsx`, in the products dropdow
 existing item markup):
 
 ```tsx
-<Link to="/app/know-your-code" className="nav-dropdown__item">Know Your Code</Link>
+<Link to="/app/legend" className="nav-dropdown__item">Legend</Link>
 ```
 
 ### 2d. Add the sidebar entry
@@ -80,7 +80,7 @@ In `frontend/Frontend/src/layouts/DashboardLayout.tsx`, in the sidebar items lis
 existing entry shape — icon optional):
 
 ```tsx
-{ label: 'Know Your Code', to: '/app/know-your-code' },
+{ label: 'Legend', to: '/app/legend' },
 ```
 
 ### 2e. Chain the migration
@@ -112,7 +112,7 @@ docker compose restart api celery-worker
 cd frontend/Frontend && npm install && npm run build      # or your dev server
 ```
 
-Log in as any non-superadmin user → the **Know Your Code** item appears in the navbar →
+Log in as any non-superadmin user → the **Legend** item appears in the navbar →
 clicking it lands on the module home inside the existing dashboard chrome.
 
 ---
@@ -157,7 +157,7 @@ pip install tree_sitter tree_sitter_languages
 
 ---
 
-## 5. API surface (mounted at `/api/v1/know-your-code`)
+## 5. API surface (mounted at `/api/v1/legend`)
 
 ```
 POST   /repos                          create + queue indexing (git starts immediately)
@@ -208,7 +208,7 @@ collection `kyc_<repo_id>`, one point per symbol.
 - **Frontend**: written to the host's documented patterns; type-check/build happens in the
   host toolchain after `npm i d3-force prismjs`.
 - **Screen recording**: capture the 30-second clip after integration in your environment
-  (it needs the running host). A quick smoke path: log in → Know Your Code → *Connect a Git
+  (it needs the running host). A quick smoke path: log in → Legend → *Connect a Git
   repo* → watch the progress bar → Overview/Files/Q&A/Architecture/Tour.
 ---
 

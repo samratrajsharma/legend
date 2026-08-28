@@ -1,0 +1,9 @@
+.kn-foot { border-top: 1px solid var(--color-border); padding: 40px 0; background: #000; }
+.kn-foot__inner { display: flex; align-items: center; justify-content: space-between; gap: 24px; flex-wrap: wrap; }
+.kn-foot__brand { display: inline-flex; align-items: center; gap: 9px; font-size: 15px; font-weight: 700; color: var(--color-text); }
+.kn-foot__mark { width: 15px; height: 15px; border-radius: 4px; background: linear-gradient(135deg, #1DB954, #5BE88C); }
+.kn-foot__links { display: flex; gap: 20px; flex-wrap: wrap; }
+.kn-foot__links a { font-size: 13.5px; color: var(--color-text-secondary); transition: color .15s; }
+.kn-foot__links a:hover { color: var(--color-primary); }
+.kn-foot__copy { font-size: 12.5px; color: #6f6f6f; }
+@media (max-width: 720px) { .kn-foot__inner { justify-content: center; text-align: center; } }

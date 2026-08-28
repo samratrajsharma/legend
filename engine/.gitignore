@@ -1,5 +1,5 @@
 # ─────────────────────────────────────────────────────────────
-# KnowIT — .gitignore
+# Legend — .gitignore
 # NOTE: git has no inline comments. Every comment must be on its own line;
 # "pattern   # comment" would be treated as a literal pattern.
 # ─────────────────────────────────────────────────────────────
@@ -31,8 +31,8 @@ dist/
 *.key
 .streamlit/secrets.toml
 
-# KnowIT runtime data (regenerable — keep out of git)
-.knowit_cache/
+# Legend runtime data (regenerable — keep out of git)
+.legend_cache/
 data/
 .cache/
 

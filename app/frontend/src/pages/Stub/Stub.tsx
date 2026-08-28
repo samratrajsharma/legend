@@ -9,11 +9,11 @@ export default function Stub({ title }: { title: string }) {
       </div>
       <div className="card stub">
         <div className="stub__icon" aria-hidden="true">
-          <img src="/knowyourcode-icon.svg" width={64} height={64} alt="" />
+          <img src="/legend-icon.svg" width={64} height={64} alt="" />
         </div>
         <h3 className="stub__title">{title} is on the way</h3>
         <p className="stub__body">
-          The KnowIT engine already supports this — it ships in the next round of UI work on this testbed.
+          The Legend engine already supports this — it ships in the next round of UI work on this testbed.
           See the integration plan document for the full surface roadmap.
         </p>
       </div>

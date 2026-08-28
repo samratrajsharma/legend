@@ -1,4 +1,4 @@
-"""SQLAlchemy models for the Know Your Code module.
+"""SQLAlchemy models for the Legend module.
 
 Tables are prefixed `kyc_` and share the host's declarative `Base`, so the host's Alembic
 autogeneration / our migration sees them. Every top-level table carries owner_id + org_id

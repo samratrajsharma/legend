@@ -22,7 +22,7 @@ def test_app_renders_every_tab_without_error(project_root, monkeypatch):
         pytest.skip("streamlit AppTest API not available")
 
     # Force BM25-only: build_index('auto') swallows the Chroma failure.
-    import knowit.pipeline as pipeline
+    import legend.pipeline as pipeline
     monkeypatch.setattr(pipeline, "ChromaRetriever", _no_chroma)
 
     at = AppTest.from_file(str(project_root / "app.py"), default_timeout=120)
@@ -30,6 +30,6 @@ def test_app_renders_every_tab_without_error(project_root, monkeypatch):
 
     # No uncaught exception and no st.exception element anywhere in the app.
     assert not at.exception, f"app raised during render: {list(at.exception)}"
-    assert at.title[0].value == "KnowIT"
+    assert at.title[0].value == "Legend"
     # Overview renders a row of metrics -> confirms the tabs actually executed.
     assert len(at.metric) >= 4

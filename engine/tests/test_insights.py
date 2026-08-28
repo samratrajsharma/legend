@@ -1,7 +1,7 @@
-"""Tests for knowit.insights — repo insights, file summaries, language/API/DB maps."""
+"""Tests for legend.insights — repo insights, file summaries, language/API/DB maps."""
 from __future__ import annotations
 
-from knowit.insights import (api_map, db_map, file_summary, language_breakdown,
+from legend.insights import (api_map, db_map, file_summary, language_breakdown,
                              repo_insights)
 
 

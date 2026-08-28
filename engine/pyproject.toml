@@ -3,9 +3,9 @@ requires = ["setuptools>=61", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "knowit"
+name = "legend"
 version = "0.1.0"
-description = "Know Your Code — local-first codebase-intelligence engine (parsing, code graph, hybrid retrieval)."
+description = "Legend — local-first codebase-intelligence engine (parsing, code graph, hybrid retrieval)."
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "MIT" }
@@ -42,12 +42,12 @@ all = [
 dev = ["pytest>=7"]
 
 [project.urls]
-Homepage = "https://github.com/samratrajsharma/knowyourcode"
-Repository = "https://github.com/samratrajsharma/knowyourcode"
+Homepage = "https://github.com/samratrajsharma/legend"
+Repository = "https://github.com/samratrajsharma/legend"
 
 [tool.setuptools]
 # Explicit so packaging never sweeps up the engine's stray top-level scripts (app.py, etc.).
-packages = ["knowit"]
+packages = ["legend"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

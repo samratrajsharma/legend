@@ -1,0 +1,67 @@
+# Self-contained Legend app — this is the wheel published for `pip install legend` / `uvx legend`.
+# It bundles the engine (`legend`), the FastAPI web app (`legend_app`), the codemap tool, and the
+# pre-built SPA (app/backend/web). Build the SPA first:  python scripts/build.py
+# (engine/pyproject.toml still exists for an engine-only `pip install ./engine` dev install.)
+[build-system]
+requires = ["setuptools>=64", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "legend"
+version = "0.1.0"
+description = "Legend — point it at a codebase and explore it in your browser (local-first code intelligence)."
+readme = "README.md"
+requires-python = ">=3.10"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{ name = "Samrat Raj Sharma" }]
+keywords = ["code-intelligence", "static-analysis", "rag", "code-graph", "developer-tools", "cli"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Operating System :: OS Independent",
+    "Topic :: Software Development :: Libraries",
+    "Environment :: Web Environment",
+]
+# Just enough to serve the app + index a repo. The engine itself is pure-stdlib; heavy features
+# (semantic search, LLM answers, tree-sitter, report export) stay optional so `uvx legend` is small.
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.34",
+    "pydantic>=2.10",
+    "python-dotenv>=1.0",
+]
+
+[project.optional-dependencies]
+semantic = ["chromadb>=0.5.0"]                                    # on-device semantic search
+llm = ["litellm>=1.40"]                                          # AI answers/explanations
+treesitter = ["tree-sitter>=0.21", "tree-sitter-language-pack>=0.2"]
+export = ["python-docx>=1.1.0", "reportlab>=4.0.0", "python-pptx>=0.6.23"]  # .docx/.pdf report
+all = [
+    "chromadb>=0.5.0", "litellm>=1.40",
+    "tree-sitter>=0.21", "tree-sitter-language-pack>=0.2",
+    "python-docx>=1.1.0", "reportlab>=4.0.0", "python-pptx>=0.6.23",
+]
+
+[project.scripts]
+legend = "legend_app.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/samratrajsharma/legend"
+Repository = "https://github.com/samratrajsharma/legend"
+
+[tool.setuptools]
+# Three source trees, gathered into the wheel without moving files.
+packages = ["legend", "legend_app", "codemap"]
+
+[tool.setuptools.package-dir]
+legend = "engine/legend"
+legend_app = "app/backend"
+codemap = "diagrams/codemap"
+
+[tool.setuptools.package-data]
+# Ship the pre-built SPA that app/backend/app.py serves. List web/assets/* explicitly
+# alongside the recursive glob so the JS/CSS bundle is never dropped on any setuptools version.
+legend_app = ["web/**/*", "web/*", "web/assets/*"]
+
+[tool.setuptools.exclude-package-data]
+legend_app = ["tests/*", ".env", ".env.example", ".cache/*"]

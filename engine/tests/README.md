@@ -1,6 +1,6 @@
-# KnowIT test suite
+# Legend test suite
 
-A `pytest` suite covering the full `knowit/` library, the headless eval harness,
+A `pytest` suite covering the full `legend/` library, the headless eval harness,
 and the Streamlit UI. **177 tests, fully offline and deterministic** — no network,
 no LLM, no embeddings required.
 
@@ -42,23 +42,23 @@ Config lives in `pytest.ini` (collection is scoped to `tests/`).
 
 | Test file | Module(s) under test |
 |---|---|
-| `test_parsing.py` | `knowit/parsing.py` (Python ast + JS/TS regex) |
-| `test_graph.py` | `knowit/graph.py` |
-| `test_chunking.py` | `knowit/chunking.py` |
-| `test_index.py` | `knowit/index.py` (tokenizer, stemmer, BM25) |
-| `test_retrieval.py` | `knowit/retrieval.py` (RRF, hybrid, context) |
-| `test_pipeline.py` | `knowit/pipeline.py` (build_index, cache, registry) |
-| `test_insights.py` | `knowit/insights.py` |
-| `test_teach.py` | `knowit/teach.py` |
-| `test_techdebt.py` | `knowit/techdebt.py` |
-| `test_track.py` | `knowit/track.py` (git snapshots + diff) |
-| `test_diagram.py` | `knowit/diagram.py` |
-| `test_media.py` | `knowit/media.py` |
-| `test_ingest.py` | `knowit/ingest.py` |
-| `test_engmemory.py` | `knowit/engmemory.py` |
-| `test_providers.py` | `knowit/providers.py` |
-| `test_llm.py` | `knowit/llm.py` (no-model paths) |
-| `test_eval_harness.py` | `knowit/eval_harness.py` |
-| `test_config_models.py` | `knowit/config.py`, `knowit/models.py` |
+| `test_parsing.py` | `legend/parsing.py` (Python ast + JS/TS regex) |
+| `test_graph.py` | `legend/graph.py` |
+| `test_chunking.py` | `legend/chunking.py` |
+| `test_index.py` | `legend/index.py` (tokenizer, stemmer, BM25) |
+| `test_retrieval.py` | `legend/retrieval.py` (RRF, hybrid, context) |
+| `test_pipeline.py` | `legend/pipeline.py` (build_index, cache, registry) |
+| `test_insights.py` | `legend/insights.py` |
+| `test_teach.py` | `legend/teach.py` |
+| `test_techdebt.py` | `legend/techdebt.py` |
+| `test_track.py` | `legend/track.py` (git snapshots + diff) |
+| `test_diagram.py` | `legend/diagram.py` |
+| `test_media.py` | `legend/media.py` |
+| `test_ingest.py` | `legend/ingest.py` |
+| `test_engmemory.py` | `legend/engmemory.py` |
+| `test_providers.py` | `legend/providers.py` |
+| `test_llm.py` | `legend/llm.py` (no-model paths) |
+| `test_eval_harness.py` | `legend/eval_harness.py` |
+| `test_config_models.py` | `legend/config.py`, `legend/models.py` |
 | `test_smoke.py` | every module imports; `app.py` + scripts compile |
 | `test_app_ui.py` | `app.py` end-to-end via Streamlit AppTest |

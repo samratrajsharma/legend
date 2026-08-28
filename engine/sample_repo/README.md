@@ -1,6 +1,6 @@
 # Sample Detector Service
 
-A tiny DETR-style object detection service used to demo KnowIT Phase 0.
+A tiny DETR-style object detection service used to demo Legend Phase 0.
 
 - `model.py` — the `Detector` model (initialized in `Detector.__init__`)
 - `data.py` — image loading and preprocessing

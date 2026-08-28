@@ -1,4 +1,4 @@
-"""Shared pytest fixtures for the KnowIT test suite.
+"""Shared pytest fixtures for the Legend test suite.
 
 The fixtures build a real RepoIndex over the bundled ``sample_repo`` using a
 **BM25-only** config so the suite is fast, fully offline, and deterministic
@@ -20,8 +20,8 @@ SAMPLE = ROOT / "sample_repo"
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from knowit.config import Config          # noqa: E402
-from knowit.pipeline import build_index   # noqa: E402
+from legend.config import Config          # noqa: E402
+from legend.pipeline import build_index   # noqa: E402
 
 
 @pytest.fixture(scope="session")
@@ -38,7 +38,7 @@ def sample_repo_path() -> str:
 @pytest.fixture(scope="session")
 def bm25_config(tmp_path_factory) -> Config:
     """A BM25-only, no-cache, no-LLM config writing into a throwaway data dir."""
-    data_dir = tmp_path_factory.mktemp("knowit_data")
+    data_dir = tmp_path_factory.mktemp("legend_data")
     return Config(embed_backend="bm25", data_dir=str(data_dir),
                   use_cache=False, llm_model="", llm_provider="")
 
@@ -86,7 +86,7 @@ def git_repo(tmp_path_factory):
     _git(["init", "-q"], repo)
     # Local identity so commits succeed in CI / clean environments.
     _git(["config", "user.email", "test@example.com"], repo)
-    _git(["config", "user.name", "KnowIT Test"], repo)
+    _git(["config", "user.name", "Legend Test"], repo)
     _git(["config", "commit.gpgsign", "false"], repo)
 
     # --- base commit ---

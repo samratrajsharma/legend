@@ -7,16 +7,16 @@ import py_compile
 
 import pytest
 
-KNOWIT_MODULES = [
-    "knowit", "knowit.config", "knowit.models", "knowit.providers",
-    "knowit.ingest", "knowit.parsing", "knowit.graph", "knowit.chunking",
-    "knowit.index", "knowit.retrieval", "knowit.llm", "knowit.insights",
-    "knowit.diagram", "knowit.teach", "knowit.track", "knowit.techdebt",
-    "knowit.engmemory", "knowit.media", "knowit.pipeline", "knowit.eval_harness",
+LEGEND_MODULES = [
+    "legend", "legend.config", "legend.models", "legend.providers",
+    "legend.ingest", "legend.parsing", "legend.graph", "legend.chunking",
+    "legend.index", "legend.retrieval", "legend.llm", "legend.insights",
+    "legend.diagram", "legend.teach", "legend.track", "legend.techdebt",
+    "legend.engmemory", "legend.media", "legend.pipeline", "legend.eval_harness",
 ]
 
 
-@pytest.mark.parametrize("mod", KNOWIT_MODULES)
+@pytest.mark.parametrize("mod", LEGEND_MODULES)
 def test_module_imports(mod):
     assert importlib.import_module(mod) is not None
 

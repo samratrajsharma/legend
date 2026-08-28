@@ -1,11 +1,11 @@
-"""Tests for knowit.engmemory — decision/error/memory JSON store + LLM helpers."""
+"""Tests for legend.engmemory — decision/error/memory JSON store + LLM helpers."""
 from __future__ import annotations
 
 import glob
 import os
 
-from knowit import engmemory
-from knowit.config import Config
+from legend import engmemory
+from legend.config import Config
 
 
 def _cfg(tmp_path):

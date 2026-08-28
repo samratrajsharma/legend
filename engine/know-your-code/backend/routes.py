@@ -1,5 +1,5 @@
-"""Know Your Code API. Mounted by the host at /api/v1; this router's prefix is
-/know-your-code. Every query is scoped to current_user.org_id (tenant isolation), and any
+"""Legend API. Mounted by the host at /api/v1; this router's prefix is
+/legend. Every query is scoped to current_user.org_id (tenant isolation), and any
 work over ~2s is queued to Celery."""
 from __future__ import annotations
 import os
@@ -19,7 +19,7 @@ from .services import repo_loader as RL, qa as qa_service
 from .services.indexer import drop_collection
 from .tasks import index_repo_task
 
-router = APIRouter(prefix="/know-your-code")
+router = APIRouter(prefix="/legend")
 
 
 async def _get_repo(db: AsyncSession, repo_id: str, user: User) -> KYCRepo:

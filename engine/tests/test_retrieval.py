@@ -1,8 +1,8 @@
-"""Tests for knowit.retrieval — RRF fusion, hybrid search, context assembly."""
+"""Tests for legend.retrieval — RRF fusion, hybrid search, context assembly."""
 from __future__ import annotations
 
-from knowit.models import Retrieved
-from knowit.retrieval import _rrf, assemble_context, hybrid_search
+from legend.models import Retrieved
+from legend.retrieval import _rrf, assemble_context, hybrid_search
 
 
 class _Chunk:

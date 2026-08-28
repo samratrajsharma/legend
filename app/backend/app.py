@@ -1,5 +1,5 @@
-"""Know Your Code testbed backend — thin FastAPI wrapper over the existing
-KnowIT engine. Full surface: every Streamlit tab has a REST endpoint here.
+"""Legend testbed backend — thin FastAPI wrapper over the existing
+Legend engine. Full surface: every Streamlit tab has a REST endpoint here.
 """
 from __future__ import annotations
 
@@ -29,16 +29,16 @@ if str(ENGINE_ROOT) not in sys.path:
     sys.path.insert(0, str(ENGINE_ROOT))
 
 # ── codemap import (separate standalone tool) ────────────────────
-# Lives at <repo-root>/know-your-code/diagrams/codemap/codemap.py. We add its folder to
+# Lives at <repo-root>/legend/diagrams/codemap/codemap.py. We add its folder to
 # sys.path so the script's top-level functions are importable.
 CODEMAP_ROOT = (HERE / ".." / ".." / "diagrams" / "codemap").resolve()
 if str(CODEMAP_ROOT) not in sys.path:
     sys.path.insert(0, str(CODEMAP_ROOT))
 
-from knowit.config import Config         # type: ignore
-from knowit.pipeline import build_index  # type: ignore
-from knowit.retrieval import assemble_context  # type: ignore
-from knowit import (                      # type: ignore
+from legend.config import Config         # type: ignore
+from legend.pipeline import build_index  # type: ignore
+from legend.retrieval import assemble_context  # type: ignore
+from legend import (                      # type: ignore
     insights, providers as engine_providers,
     track, techdebt, engmemory,
     impact, coverage, config_map, progress as kyc_progress,
@@ -66,18 +66,18 @@ except Exception as _cmap_err:
 
 
 # ── App + CORS ───────────────────────────────────────────────────
-app = FastAPI(title="Know Your Code (testbed)", version="0.2.0")
+app = FastAPI(title="Legend (testbed)", version="0.2.0")
 # Host allowlist. Binding to 127.0.0.1 does NOT stop DNS rebinding: after the attacker's
 # domain re-resolves to 127.0.0.1, the browser treats http://attacker.tld:8100 as
 # same-origin and CORS never engages. Rejecting any Host header that isn't our own closes
 # that whole class - a rebinding request arrives with Host: attacker.tld and is refused
 # with 400 before any handler runs. (Audit critical #4.)
-# Default to loopback only. A reverse-proxied / KNOWIT_HOST=0.0.0.0 deployment can add its own
-# hostname(s) via KNOWIT_ALLOWED_HOSTS (comma-separated) - the allowlist and the exposure knob
+# Default to loopback only. A reverse-proxied / LEGEND_HOST=0.0.0.0 deployment can add its own
+# hostname(s) via LEGEND_ALLOWED_HOSTS (comma-separated) - the allowlist and the exposure knob
 # are then consistent (audit). Note: this is a Host check, NOT authentication; put a proxy with
 # auth in front of any non-loopback exposure.
 _DEFAULT_HOSTS = ["localhost", "127.0.0.1", "localhost:8100", "127.0.0.1:8100"]
-_extra_hosts = [h.strip() for h in os.environ.get("KNOWIT_ALLOWED_HOSTS", "").split(",") if h.strip()]
+_extra_hosts = [h.strip() for h in os.environ.get("LEGEND_ALLOWED_HOSTS", "").split(",") if h.strip()]
 app.add_middleware(
     TrustedHostMiddleware,
     allowed_hosts=_DEFAULT_HOSTS + _extra_hosts,
@@ -96,11 +96,11 @@ def _repo_id(source: str) -> str:
     return hashlib.sha1(source.encode("utf-8")).hexdigest()[:12]
 
 def _engine_config() -> Config:
-    data_dir = os.environ.get("KNOWIT_DATA_DIR", str(HERE / ".cache"))
+    data_dir = os.environ.get("LEGEND_DATA_DIR", str(HERE / ".cache"))
     cfg = Config(data_dir=data_dir)
-    provider = os.environ.get("KNOWIT_LLM_PROVIDER", "").strip()
-    model    = os.environ.get("KNOWIT_LLM_MODEL", "").strip()
-    base_url = os.environ.get("KNOWIT_LLM_BASE_URL", "").strip()
+    provider = os.environ.get("LEGEND_LLM_PROVIDER", "").strip()
+    model    = os.environ.get("LEGEND_LLM_MODEL", "").strip()
+    base_url = os.environ.get("LEGEND_LLM_BASE_URL", "").strip()
     if provider and model:
         full, extra = engine_providers.resolve(provider, model, base_url)
         cfg.llm_model = full; cfg.llm_kwargs = extra
@@ -149,7 +149,7 @@ class SnapshotDiffRequest(BaseModel):
 def _registry_source(rid: str) -> str:
     """Recover a repo's source (url/path) from repos.json, the on-disk registry."""
     try:
-        data_dir = Path(os.environ.get("KNOWIT_DATA_DIR", str(HERE / ".cache")))
+        data_dir = Path(os.environ.get("LEGEND_DATA_DIR", str(HERE / ".cache")))
         rp = data_dir / "repos.json"
         if rp.exists():
             for e in json.loads(rp.read_text(encoding="utf-8")):
@@ -215,7 +215,7 @@ def llm_status() -> dict:
     return {
         "configured": bool(cfg.llm_model),
         "model": cfg.llm_model or None,
-        "provider": os.environ.get("KNOWIT_LLM_PROVIDER", "") or None,
+        "provider": os.environ.get("LEGEND_LLM_PROVIDER", "") or None,
     }
 
 
@@ -261,7 +261,7 @@ def _persist_env(updates: dict) -> None:
 def _load_model_profiles() -> list:
     """Saved model roster (list of {provider, model, base_url}) from env JSON."""
     import json as _json
-    raw = os.environ.get("KNOWIT_LLM_MODELS", "").strip()
+    raw = os.environ.get("LEGEND_LLM_MODELS", "").strip()
     if not raw:
         return []
     try:
@@ -279,8 +279,8 @@ class ModelsSaveRequest(BaseModel):
 @app.get("/api/v1/llm/models")
 def llm_models() -> dict:
     """The saved model roster, for the per-run pickers and Settings."""
-    cur_p = os.environ.get("KNOWIT_LLM_PROVIDER", "")
-    cur_m = os.environ.get("KNOWIT_LLM_MODEL", "")
+    cur_p = os.environ.get("LEGEND_LLM_PROVIDER", "")
+    cur_m = os.environ.get("LEGEND_LLM_MODEL", "")
     out = []
     for m in _load_model_profiles():
         prov = (m.get("provider") or ""); mod = (m.get("model") or ""); bu = (m.get("base_url") or "")
@@ -312,17 +312,17 @@ def llm_save_models(req: ModelsSaveRequest) -> dict:
         if key and pr and pr.get("key_env"):
             updates[pr["key_env"]] = key
         clean.append({"provider": prov, "model": mod, "base_url": bu})
-    updates["KNOWIT_LLM_MODELS"] = _json.dumps(clean, separators=(",", ":"))
+    updates["LEGEND_LLM_MODELS"] = _json.dumps(clean, separators=(",", ":"))
     di = req.default_index if 0 <= req.default_index < len(clean) else 0
     if clean:
         d = clean[di]
-        updates["KNOWIT_LLM_PROVIDER"] = d["provider"]
-        updates["KNOWIT_LLM_MODEL"] = d["model"]
-        updates["KNOWIT_LLM_BASE_URL"] = d.get("base_url", "")
+        updates["LEGEND_LLM_PROVIDER"] = d["provider"]
+        updates["LEGEND_LLM_MODEL"] = d["model"]
+        updates["LEGEND_LLM_BASE_URL"] = d.get("base_url", "")
     else:
-        updates["KNOWIT_LLM_PROVIDER"] = ""
-        updates["KNOWIT_LLM_MODEL"] = ""
-        updates["KNOWIT_LLM_BASE_URL"] = ""
+        updates["LEGEND_LLM_PROVIDER"] = ""
+        updates["LEGEND_LLM_MODEL"] = ""
+        updates["LEGEND_LLM_BASE_URL"] = ""
     for k, v in updates.items():
         if v:
             os.environ[k] = v
@@ -354,9 +354,9 @@ def llm_providers() -> dict:
     return {
         "providers": out,
         "current": {
-            "provider": os.environ.get("KNOWIT_LLM_PROVIDER", "") or None,
-            "model": os.environ.get("KNOWIT_LLM_MODEL", "") or None,
-            "base_url": os.environ.get("KNOWIT_LLM_BASE_URL", "") or None,
+            "provider": os.environ.get("LEGEND_LLM_PROVIDER", "") or None,
+            "model": os.environ.get("LEGEND_LLM_MODEL", "") or None,
+            "base_url": os.environ.get("LEGEND_LLM_BASE_URL", "") or None,
         },
     }
 
@@ -367,7 +367,7 @@ def llm_ollama_models(base_url: str = "") -> dict:
     import json as _json
     import urllib.request
     from urllib.parse import urlparse
-    base = (base_url or os.environ.get("KNOWIT_LLM_BASE_URL", "")
+    base = (base_url or os.environ.get("LEGEND_LLM_BASE_URL", "")
             or "http://localhost:11434").rstrip("/")
     # SSRF guard: only reach a LOCAL Ollama. Without this, an attacker-supplied base_url turns
     # this unauthenticated GET into a server-side request to internal/metadata hosts (audit).
@@ -408,9 +408,9 @@ def llm_set_config(req: LlmConfigRequest) -> dict:
     """Set the LLM config: apply at runtime AND persist to .env, then test."""
     provider, model, base_url = req.provider.strip(), req.model.strip(), req.base_url.strip()
     updates = {
-        "KNOWIT_LLM_PROVIDER": provider,
-        "KNOWIT_LLM_MODEL": model,
-        "KNOWIT_LLM_BASE_URL": base_url,
+        "LEGEND_LLM_PROVIDER": provider,
+        "LEGEND_LLM_MODEL": model,
+        "LEGEND_LLM_BASE_URL": base_url,
     }
     pr = engine_providers.PROVIDERS.get(provider)
     if req.api_key.strip() and pr and pr.get("key_env"):
@@ -706,7 +706,7 @@ def _report_sections(idx) -> list:
 
 def _report_md(name, secs) -> str:
     import datetime
-    out = ["# Know Your Code - Report: %s" % name, "",
+    out = ["# Legend - Report: %s" % name, "",
            "_Generated %s_" % datetime.datetime.now().strftime("%Y-%m-%d %H:%M"), ""]
     for s in secs:
         out.append("## " + s["h"]); out.append("")
@@ -732,7 +732,7 @@ def _report_docx(name, secs) -> bytes:
     import io, datetime
     from docx import Document
     doc = Document()
-    doc.add_heading("Know Your Code - Report: %s" % name, 0)
+    doc.add_heading("Legend - Report: %s" % name, 0)
     doc.add_paragraph("Generated %s" % datetime.datetime.now().strftime("%Y-%m-%d %H:%M"))
     for s in secs:
         doc.add_heading(s["h"], level=1)
@@ -774,7 +774,7 @@ def _report_pdf(name, secs) -> bytes:
     ss = getSampleStyleSheet()
     def esc(x):
         return _html.escape(str(x))
-    flow = [Paragraph("Know Your Code - Report: %s" % esc(name), ss["Title"]),
+    flow = [Paragraph("Legend - Report: %s" % esc(name), ss["Title"]),
             Paragraph("Generated %s" % datetime.datetime.now().strftime("%Y-%m-%d %H:%M"), ss["Normal"]),
             Spacer(1, 8)]
     for s in secs:
@@ -831,7 +831,7 @@ def repo_report(rid: str, fmt: str = "md"):
     else:
         raise HTTPException(400, "fmt must be md, docx, or pdf")
     return Response(content=data, media_type=media, headers={
-        "Content-Disposition": 'attachment; filename="knowyourcode-report-%s.%s"' % (safe, ext)})
+        "Content-Disposition": 'attachment; filename="legend-report-%s.%s"' % (safe, ext)})
 
 
 # ── Graph nodes ─────────────────────────────────────────────────
@@ -1286,7 +1286,7 @@ def _track_dir(rid: str) -> Path:
     # so anything else (`..`, absolute paths) is rejected rather than making stray dirs (audit).
     if not _RID_RE.fullmatch(rid or ""):
         raise HTTPException(404, "Unknown repo_id")
-    d = Path(os.environ.get("KNOWIT_DATA_DIR", str(HERE / ".cache"))) / "tracked" / rid
+    d = Path(os.environ.get("LEGEND_DATA_DIR", str(HERE / ".cache"))) / "tracked" / rid
     d.mkdir(parents=True, exist_ok=True)
     return d
 
@@ -1642,7 +1642,7 @@ def workspace() -> dict:
     """All folders we have history for (persisted), with their latest change —
     the multi-folder home. Survives restarts (reads disk, not just memory)."""
     import json
-    data_dir = Path(os.environ.get("KNOWIT_DATA_DIR", str(HERE / ".cache")))
+    data_dir = Path(os.environ.get("LEGEND_DATA_DIR", str(HERE / ".cache")))
     base = data_dir / "tracked"
     # Older tracked folders have no meta.json, so their name/source is unknown. The connect
     # registry (repos.json) records {source, name} for everything ever connected, and a folder
@@ -1855,3 +1855,45 @@ def intel_coverage(rid: str) -> dict:
         return coverage.coverage_summary(idx)
     except Exception as e:
         raise HTTPException(500, f"Coverage analysis failed: {type(e).__name__}: {e}")
+
+
+# ── `legend` CLI integration: auto-connect a repo on startup ─────────────────────
+@app.on_event("startup")
+def _autoconnect_startup() -> None:
+    """If launched as `legend <repo>`, the CLI sets LEGEND_OPEN_REPO; connect it once so it's
+    already indexing by the time the browser opens. No-op for the normal dev server."""
+    src = (os.environ.get("LEGEND_OPEN_REPO") or "").strip()
+    if not src:
+        return
+    try:
+        connect_repo(ConnectRepoRequest(source=src))
+    except Exception:
+        pass
+
+
+# ── Serve the bundled single-page app (only when the built assets are present) ───
+# In dev you run Vite on :5273, so `web/` is absent and this whole block is skipped. In the
+# packaged wheel (installed / `uvx legend`), `web/` holds the built SPA and the backend serves
+# it at "/", with a catch-all returning index.html for client-side routes. Registered LAST so
+# it never shadows the API routes above.
+_WEB = Path(__file__).resolve().parent / "web"
+if _WEB.is_dir() and (_WEB / "index.html").is_file():
+    from fastapi.staticfiles import StaticFiles
+    _INDEX = _WEB / "index.html"
+    if (_WEB / "assets").is_dir():
+        app.mount("/assets", StaticFiles(directory=str(_WEB / "assets")), name="assets")
+
+    @app.get("/", include_in_schema=False)
+    def _spa_root():
+        return FileResponse(str(_INDEX))
+
+    @app.get("/{full_path:path}", include_in_schema=False)
+    def _spa_catch_all(full_path: str):
+        # /api/* and /healthz have their own routes above; a stray one should 404, not return
+        # the SPA. Real files (favicon, icon) are served; anything else is a client route.
+        if full_path.startswith("api/") or full_path == "healthz":
+            raise HTTPException(404, "Not found")
+        cand = _WEB / full_path
+        if cand.is_file():
+            return FileResponse(str(cand))
+        return FileResponse(str(_INDEX))

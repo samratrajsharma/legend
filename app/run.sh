@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-# Know Your Code — start backend + frontend (macOS / Linux; the run.ps1 counterpart).
+# Legend — start backend + frontend (macOS / Linux; the run.ps1 counterpart).
 #
 #   ./run.sh              start normally
 #   ./run.sh --fresh      wipe ALL indexed repos, caches and timeline history, then start
 #   ./run.sh --fresh -y   same, without the confirmation prompt
-#   ./run.sh --reload     backend hot-reload (KNOWIT_RELOAD=1) — see main.py for why it's off by default
+#   ./run.sh --reload     backend hot-reload (LEGEND_RELOAD=1) — see main.py for why it's off by default
 #
 # --fresh does NOT touch .env (API keys), node_modules, or the Python env.
 set -euo pipefail
@@ -24,11 +24,11 @@ for arg in "$@"; do
   esac
 done
 
-# ----- data dir the backend uses: $KNOWIT_DATA_DIR > backend/.env > backend/.cache -----
+# ----- data dir the backend uses: $LEGEND_DATA_DIR > backend/.env > backend/.cache -----
 resolve_data_dir() {
-  local v="${KNOWIT_DATA_DIR:-}"
+  local v="${LEGEND_DATA_DIR:-}"
   if [ -z "$v" ] && [ -f "$BACKEND/.env" ]; then
-    v="$(sed -nE 's/^[[:space:]]*KNOWIT_DATA_DIR[[:space:]]*=[[:space:]]*//p' "$BACKEND/.env" | head -1)"
+    v="$(sed -nE 's/^[[:space:]]*LEGEND_DATA_DIR[[:space:]]*=[[:space:]]*//p' "$BACKEND/.env" | head -1)"
     v="${v%\"}"; v="${v#\"}"; v="${v%\'}"; v="${v#\'}"
   fi
   [ -z "$v" ] && v="$BACKEND/.cache"
@@ -91,18 +91,18 @@ else
 fi
 
 echo
-echo "Starting Know Your Code..."
+echo "Starting Legend..."
 echo "  Backend:  http://localhost:8100  (docs at /docs)"
 echo "  Frontend: http://localhost:5273"
 [ "$RELOAD" = 1 ] && echo "  Backend hot-reload: ON"
 echo "  Press Ctrl+C to stop both."
 echo
 
-if [ "$RELOAD" = 1 ]; then export KNOWIT_RELOAD=1; else export KNOWIT_RELOAD=0; fi
+if [ "$RELOAD" = 1 ]; then export LEGEND_RELOAD=1; else export LEGEND_RELOAD=0; fi
 
 BACK_PID=""; FRONT_PID=""
 cleanup() {
-  echo; echo "Stopping Know Your Code..."
+  echo; echo "Stopping Legend..."
   [ -n "$FRONT_PID" ] && kill "$FRONT_PID" 2>/dev/null || true
   [ -n "$BACK_PID" ]  && kill "$BACK_PID"  2>/dev/null || true
 }

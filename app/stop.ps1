@@ -1,4 +1,4 @@
-# Kill anything listening on the KnowIT testbed ports - including the PARENT that
+# Kill anything listening on the Legend testbed ports - including the PARENT that
 # spawned it.
 #
 # uvicorn's --reload runs a reloader parent plus a worker child. The port belongs to
@@ -44,4 +44,4 @@ foreach ($p in 8100, 5273) {
         Write-Host "Port $p : free."
     }
 }
-Write-Host "Stopped Know Your Code testbed."
+Write-Host "Stopped Legend testbed."

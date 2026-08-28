@@ -1,7 +1,7 @@
-"""Tests for knowit.teach — learning path, flashcards, quizzes, interview, gaps."""
+"""Tests for legend.teach — learning path, flashcards, quizzes, interview, gaps."""
 from __future__ import annotations
 
-from knowit.teach import (flashcards, interview, learning_gaps, learning_path,
+from legend.teach import (flashcards, interview, learning_gaps, learning_path,
                           quiz)
 
 

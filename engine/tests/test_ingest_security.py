@@ -11,7 +11,7 @@ import tempfile
 
 import pytest
 
-from knowit import ingest
+from legend import ingest
 
 
 # ── transport allowlist (blocks ext:: RCE, file:// SSRF, arg injection) ──────────
