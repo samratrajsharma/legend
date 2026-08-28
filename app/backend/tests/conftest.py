@@ -42,7 +42,10 @@ def client(tmp_path_factory):
         embed_backend="bm25", data_dir=str(data_dir),
         use_cache=False, llm_model="", llm_provider="",
     )
-    with TestClient(backend.app) as c:
+    # TrustedHostMiddleware only accepts localhost Host headers; TestClient otherwise sends
+    # `Host: testserver`, which the middleware rejects with 400 before any route runs. Pin
+    # the base_url to an allowed host so requests carry `Host: localhost:8100`.
+    with TestClient(backend.app, base_url="http://localhost:8100") as c:
         yield c
 
 
