@@ -1,4 +1,5 @@
 """uvicorn launcher for the Know Your Code testbed backend."""
+import logging
 import os
 from pathlib import Path
 
@@ -6,6 +7,7 @@ import uvicorn
 from dotenv import load_dotenv
 
 HERE = Path(__file__).resolve().parent
+log = logging.getLogger("knowit.server")
 
 
 def _data_dir() -> Path:
@@ -18,6 +20,12 @@ def _data_dir() -> Path:
 
 if __name__ == "__main__":
     load_dotenv()
+    # Structured logging, level via KNOWIT_LOG_LEVEL (default INFO). Configures the root
+    # logger so the engine and request handlers log through the same handler (QA #29).
+    logging.basicConfig(
+        level=(os.environ.get("KNOWIT_LOG_LEVEL") or "INFO").upper(),
+        format="%(asctime)s %(levelname)-7s %(name)s: %(message)s",
+    )
 
     # ── Auto-reload is OFF by default, and that is deliberate. ────────────────
     #
@@ -40,7 +48,9 @@ if __name__ == "__main__":
     reload_on = (os.environ.get("KNOWIT_RELOAD") or "").strip().lower() in ("1", "true", "yes", "on")
     data = _data_dir()
 
-    kwargs = {"host": "127.0.0.1", "port": 8100, "reload": reload_on}
+    # Bind 127.0.0.1 by default; KNOWIT_HOST=0.0.0.0 lets the Docker image expose it.
+    host = (os.environ.get("KNOWIT_HOST") or "127.0.0.1").strip()
+    kwargs = {"host": host, "port": 8100, "reload": reload_on}
     if reload_on:
         kwargs["reload_dirs"] = [str(HERE)]
         kwargs["reload_excludes"] = [
@@ -55,11 +65,11 @@ if __name__ == "__main__":
         except ValueError:
             pass
         if inside:
-            print("[knowit] WARNING: KNOWIT_DATA_DIR is inside the reload watch path.")
-            print("[knowit]          It is excluded, but if indexing still dies mid-run,")
-            print("[knowit]          run without KNOWIT_RELOAD or move the data dir out.")
+            log.warning("KNOWIT_DATA_DIR is inside the reload watch path. It is excluded, "
+                        "but if indexing still dies mid-run, run without KNOWIT_RELOAD or "
+                        "move the data dir out.")
 
-    print("[knowit] data dir : %s" % data)
-    print("[knowit] reload   : %s" % ("ON (KNOWIT_RELOAD=1)" if reload_on else "OFF"))
-    print("[knowit] listening: http://127.0.0.1:8100")
+    log.info("data dir : %s", data)
+    log.info("reload   : %s", "ON (KNOWIT_RELOAD=1)" if reload_on else "OFF")
+    log.info("listening: http://%s:8100", host)
     uvicorn.run("app:app", **kwargs)
