@@ -164,7 +164,7 @@ Once the browser is open, you'll find these tabs:
 Legend also runs as an [MCP](https://modelcontextprotocol.io) server, giving coding agents (Claude Code, Claude Desktop, Cursor, Windsurf, Zed, Continue, Cline — anything that speaks MCP) **deterministic** answers about your code's structure. These are the questions that otherwise cost an agent a dozen greps and tens of thousands of tokens to approximate — here they're one call each.
 
 ```bash
-uvx --with "legend-lens[mcp]" legend mcp --repo .
+uvx --from "legend-lens[mcp]" legend mcp --repo .
 # or, once installed:  pip install "legend-lens[mcp]"   then   legend mcp --repo .
 ```
 
@@ -173,7 +173,7 @@ Point your MCP client at it:
 ```json
 {
   "mcpServers": {
-    "legend": { "command": "uvx", "args": ["--with", "legend-lens[mcp]", "legend", "mcp", "--repo", "."] }
+    "legend": { "command": "uvx", "args": ["--from", "legend-lens[mcp]", "legend", "mcp", "--repo", "."] }
   }
 }
 ```

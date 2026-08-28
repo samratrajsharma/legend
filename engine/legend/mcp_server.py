@@ -387,7 +387,7 @@ def build_server():
         raise SystemExit(
             "Legend's MCP server needs the 'mcp' package, which isn't installed.\n"
             "Install it with:  pip install \"legend-lens[mcp]\"\n"
-            "or run directly:  uvx --with \"legend-lens[mcp]\" legend mcp"
+            "or run directly:  uvx --from \"legend-lens[mcp]\" legend mcp"
         ) from e
 
     server = FastMCP("legend")

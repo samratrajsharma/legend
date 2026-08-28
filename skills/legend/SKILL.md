@@ -34,7 +34,7 @@ Point your MCP client at Legend's stdio server (needs the `mcp` extra):
 ```json
 {
   "mcpServers": {
-    "legend": { "command": "uvx", "args": ["--with", "legend-lens[mcp]", "legend", "mcp", "--repo", "."] }
+    "legend": { "command": "uvx", "args": ["--from", "legend-lens[mcp]", "legend", "mcp", "--repo", "."] }
   }
 }
 ```
