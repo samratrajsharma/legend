@@ -145,8 +145,15 @@ def build_graph(parsed_files):
                             if bmid in g.nodes:
                                 out.append(bmid)
             return out
-        # attr (unknown local receiver) and bare both use the scoped ladder; the phantom
-        # source - imported-module receivers - was already dropped at parse (_call_site).
+        if kind == "attr":
+            # obj.method() where obj's type is unknown: trust ONLY a same-file definition.
+            # Falling through to the repo-wide resolve() matched any repo-UNIQUE name, so a
+            # plain dict.get()/set.add() manufactured an edge to a lone CodeGraph.get / etc.
+            # On a real repo that was ~half of all call edges (QA audit). A missing edge beats
+            # a wrong one (see resolve() docstring); cross-file instance calls need real type
+            # inference, which we deliberately don't guess at.
+            return list(file_name_index.get((caller_file, name), []))
+        # bare names use the scoped resolve ladder (import / same-file / unambiguous-repo).
         return resolve(caller_file, imports, name)
 
     for pf in parsed_files:

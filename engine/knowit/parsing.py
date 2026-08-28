@@ -109,27 +109,35 @@ def _call_site(func, import_names):
 
 
 def _calls_and_complexity(node, import_names=frozenset()):
-    """Bare-name calls (compat) + receiver-classified call sites + cyclomatic complexity in
-    ONE ast.walk of the subtree."""
+    """Bare-name calls (compat) + receiver-classified call sites + cyclomatic complexity.
+
+    Walks the function BODY only. Walking the whole FunctionDef also traversed
+    `decorator_list`, so `@app.get("/x")` injected a bogus `get` call/call-site into every
+    decorated handler and inflated its complexity - which then manufactured phantom call
+    edges to any repo symbol named `get`/`post`/... (QA audit finding). Signature defaults
+    and annotations are likewise not calls the function makes."""
     calls, sites, seen, seen_sites = [], [], set(), set()
     c = 1
-    for n in ast.walk(node):
-        if isinstance(n, ast.Call):
-            nm = _callee_name(n.func)
-            if nm and nm not in seen:
-                seen.add(nm)
-                calls.append(nm)
-            cs = _call_site(n.func, import_names)
-            if cs and cs not in seen_sites:
-                seen_sites.add(cs)
-                sites.append(cs)
-        elif isinstance(n, (ast.If, ast.For, ast.AsyncFor, ast.While,
-                            ast.ExceptHandler, ast.IfExp, ast.Assert)):
-            c += 1
-        elif isinstance(n, ast.BoolOp):
-            c += len(n.values) - 1
-        elif isinstance(n, ast.comprehension):
-            c += 1 + len(n.ifs)
+    body = getattr(node, "body", None)
+    roots = body if isinstance(body, list) else [node]
+    for root in roots:
+        for n in ast.walk(root):
+            if isinstance(n, ast.Call):
+                nm = _callee_name(n.func)
+                if nm and nm not in seen:
+                    seen.add(nm)
+                    calls.append(nm)
+                cs = _call_site(n.func, import_names)
+                if cs and cs not in seen_sites:
+                    seen_sites.add(cs)
+                    sites.append(cs)
+            elif isinstance(n, (ast.If, ast.For, ast.AsyncFor, ast.While,
+                                ast.ExceptHandler, ast.IfExp, ast.Assert)):
+                c += 1
+            elif isinstance(n, ast.BoolOp):
+                c += len(n.values) - 1
+            elif isinstance(n, ast.comprehension):
+                c += 1 + len(n.ifs)
     return calls, sites, c
 
 

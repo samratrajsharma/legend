@@ -13,8 +13,12 @@ def test_stats_match_sample_repo(idx):
     assert s["edge_types"]["contains"] == 15   # one per symbol
     assert s["edge_types"]["imports"] == 7
     assert s["edge_types"]["method_of"] == 6   # Detector's 6 methods
-    assert s["edge_types"]["calls"] == 14
-    assert s["edges"] == 42
+    # 12, not more: `obj.method()` on an unknown receiver type (_MODEL.predict / model.predict)
+    # is intentionally NOT resolved cross-file. Guessing on repo-wide name-uniqueness would
+    # correctly link predict() here but manufacture phantom edges (dict.get -> a lone
+    # CodeGraph.get) on real repos, so attr calls resolve same-file only (QA audit).
+    assert s["edge_types"]["calls"] == 12
+    assert s["edges"] == 40
 
 
 def test_contains_edges(idx):
@@ -40,6 +44,47 @@ def test_calls_and_method_of_edges(idx):
     assert "model.py::Detector.loss" in g.callers("losses.py::focal_loss")
     # methods point at their class via method_of
     assert "model.py::Detector" in g.successors("model.py::Detector.predict", "method_of")
+
+
+def test_attr_call_does_not_phantom_resolve_cross_file(build_repo):
+    # The core audit finding: `obj.method()` on an unknown receiver was resolved to ANY
+    # repo-unique symbol of that name, so a plain `dict.get()` linked to a lone `Store.get`
+    # in another file (~half of all call edges on a real repo were such phantoms). attr calls
+    # must resolve same-file only — a missing edge beats a wrong one.
+    repo = build_repo({
+        "store.py": "class Store:\n    def get(self, k):\n        return k\n",
+        "user.py":  "def lookup():\n    d = {}\n    return d.get('x')\n",
+    })
+    g = repo.graph
+    assert "store.py::Store.get" not in g.callees("user.py::lookup")
+    assert all(not t.startswith("store.py") for t in g.callees("user.py::lookup"))
+
+
+def test_attr_call_resolves_within_same_file(build_repo):
+    # Same-file `obj.method()` where the method is defined in that file SHOULD still resolve.
+    repo = build_repo({
+        "svc.py": (
+            "class Helper:\n    def run(self):\n        return 1\n\n"
+            "def handler():\n    h = Helper()\n    return h.run()\n"
+        ),
+    })
+    g = repo.graph
+    assert "svc.py::Helper.run" in g.callees("svc.py::handler")
+
+
+def test_decorated_handler_no_phantom_call_edge(build_repo):
+    # End-to-end guard for the decorator-walk bug: a decorated handler in a repo that also
+    # defines a symbol named `get` must NOT gain a phantom edge to it.
+    repo = build_repo({
+        "cache.py": "class Cache:\n    def get(self, k):\n        return k\n",
+        "routes.py": (
+            "import flask\napp = flask.Flask(__name__)\n\n"
+            '@app.get("/items")\n'
+            "def handler():\n    return []\n"
+        ),
+    })
+    g = repo.graph
+    assert "cache.py::Cache.get" not in g.callees("routes.py::handler")
 
 
 def test_get_and_neighbors(idx):
