@@ -88,12 +88,13 @@ def _receiver_root(node):
     return node.id if isinstance(node, ast.Name) else None
 
 
-def _call_site(func, import_names):
+def _call_site(func, import_names, var_types=None):
     """Classify a call's receiver so the graph doesn't fabricate edges from bare attribute
     names (QA #12). Returns (kind, name) or None:
-      bare  foo()             -> ("bare", "foo")   resolvable by import/same-file/unique
-      self  self.m()/cls.m()  -> ("self", "m")     resolved within the class hierarchy
-      attr  obj.m()           -> ("attr", "m")     resolved by the normal ladder
+      bare  foo()             -> ("bare", "foo")     resolvable by import/same-file/unique
+      self  self.m()/cls.m()  -> ("self", "m")       resolved within the class hierarchy
+      typed obj.m(), obj typed -> ("typed", "Cls.m") obj = Cls(...)/param: Cls -> that class's method
+      attr  obj.m()           -> ("attr", "m")       unknown receiver: resolved SAME-FILE only
       import-rooted receiver (log.info(), os.path.join(), np.array()) -> None (external)."""
     if isinstance(func, ast.Name):
         return ("bare", func.id)
@@ -101,6 +102,10 @@ def _call_site(func, import_names):
         recv = func.value
         if isinstance(recv, ast.Name) and recv.id in ("self", "cls"):
             return ("self", func.attr)
+        if var_types and isinstance(recv, ast.Name) and recv.id in var_types:
+            # receiver's class is known from `obj = Cls(...)` or a `obj: Cls` annotation, so
+            # resolve to that class's method precisely - even cross-file - instead of guessing.
+            return ("typed", f"{var_types[recv.id]}.{func.attr}")
         root = _receiver_root(recv)
         if root is not None and root in import_names:
             return None                     # module/imported receiver -> not a repo edge
@@ -108,7 +113,7 @@ def _call_site(func, import_names):
     return None
 
 
-def _calls_and_complexity(node, import_names=frozenset()):
+def _calls_and_complexity(node, import_names=frozenset(), var_types=None):
     """Bare-name calls (compat) + receiver-classified call sites + cyclomatic complexity.
 
     Walks the function BODY only. Walking the whole FunctionDef also traversed
@@ -127,7 +132,7 @@ def _calls_and_complexity(node, import_names=frozenset()):
                 if nm and nm not in seen:
                     seen.add(nm)
                     calls.append(nm)
-                cs = _call_site(n.func, import_names)
+                cs = _call_site(n.func, import_names, var_types)
                 if cs and cs not in seen_sites:
                     seen_sites.add(cs)
                     sites.append(cs)
@@ -203,6 +208,52 @@ def _module_defs(body):
                 yield from _module_defs(suite)
 
 
+def _scoped_assign_types(stmts):
+    """`{var -> ClassName}` from `var = ClassName(...)` assignments and `var: ClassName`
+    annotations in these statements, descending through if/for/try/with blocks but NOT into
+    nested def/class scopes (a different scope). Only bare-Name constructors are recorded,
+    so a `d = {}` / `d = []` literal never enters the map and `d.get()` stays unresolved; the
+    graph additionally requires the name to be a real repo CLASS, so factory functions and
+    builtins produce no edge."""
+    out = {}
+
+    def visit(body):
+        for s in body:
+            if isinstance(s, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+                continue
+            if isinstance(s, ast.Assign) and isinstance(s.value, ast.Call) \
+                    and isinstance(s.value.func, ast.Name):
+                for tgt in s.targets:
+                    if isinstance(tgt, ast.Name):
+                        out[tgt.id] = s.value.func.id
+            elif isinstance(s, ast.AnnAssign) and isinstance(s.target, ast.Name) \
+                    and isinstance(s.annotation, ast.Name):
+                out[s.target.id] = s.annotation.id
+            elif isinstance(s, _BLOCK_STMTS):
+                for suite in _block_suites(s):
+                    visit(suite)
+
+    visit(stmts)
+    return out
+
+
+def _param_types(node):
+    """`{param -> ClassName}` from simple `def f(x: ClassName)` annotations."""
+    args = getattr(node, "args", None)
+    if not args:
+        return {}
+    allargs = list(getattr(args, "posonlyargs", [])) + list(args.args) + list(args.kwonlyargs)
+    for extra in (args.vararg, args.kwarg):
+        if extra is not None:
+            allargs.append(extra)
+    out = {}
+    for a in allargs:
+        ann = getattr(a, "annotation", None)
+        if isinstance(ann, ast.Name):
+            out[a.arg] = ann.id
+    return out
+
+
 def parse_python(rel_path, source):
     pf = ParsedFile(file=rel_path, language="python", text=source,
                     loc=source.count("\n") + 1)
@@ -251,6 +302,8 @@ def parse_python(rel_path, source):
             for a in _n.names:
                 import_names.add(a.asname or a.name)
 
+    module_types = _scoped_assign_types(tree.body)   # module-scope `name = Class()` instances
+
     def add_symbol(node, qualprefix, parent):
         qual = f"{qualprefix}{node.name}"
         if isinstance(node, ast.ClassDef):
@@ -263,7 +316,13 @@ def parse_python(rel_path, source):
         if isinstance(node, ast.ClassDef):
             calls, sites, cx = [], [], 0
         else:
-            calls, sites, cx = _calls_and_complexity(node, import_names)
+            # receiver-type map: module-level instances (e.g. _MODEL = Detector()) shadowed by
+            # this function's params (x: Cls) and its own `x = Cls()` locals. Lets obj.method()
+            # resolve to that class's method precisely, without the phantom-edge guessing.
+            var_types = dict(module_types)
+            var_types.update(_param_types(node))
+            var_types.update(_scoped_assign_types(node.body))
+            calls, sites, cx = _calls_and_complexity(node, import_names, var_types)
         pf.symbols.append(Symbol(
             id=f"{rel_path}::{qual}", name=node.name, qualname=qual, kind=kind,
             file=rel_path, start_line=s, end_line=e,
