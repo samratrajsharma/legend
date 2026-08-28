@@ -219,6 +219,15 @@ const FEATURES: Feature[] = [
   { title: 'AI Narration', desc: 'Raw diffs become a plain-English “what changed” story — multi-repo, fully local.' },
 ];
 
+const MCP_TOOLS: { name: string; desc: string }[] = [
+  { name: 'blast_radius', desc: 'Everything transitively affected if a symbol changes.' },
+  { name: 'callers_of / callees_of', desc: 'Resolved call edges — not text matches.' },
+  { name: 'impact_of_change', desc: 'Blast radius of editing a whole file.' },
+  { name: 'structural_diff', desc: 'What changed structurally between two git refs.' },
+  { name: 'cycles', desc: 'Import cycles — or only those a change introduces.' },
+  { name: 'architecture_map', desc: 'Module areas and their dependencies.' },
+];
+
 function letters(text: string, base: number, green: boolean) {
   return text.split('').map((ch, i) => (
     <span key={i} className={'lg-ltr' + (green ? ' lg-ltr--g' : '')} style={{ animationDelay: (base + i * 0.04) + 's' }}>
@@ -230,11 +239,19 @@ function letters(text: string, base: number, green: boolean) {
 const Legend: React.FC = () => {
   const [stage, setStage] = useState(0);
   const [copied, setCopied] = useState(false);
+  const [copiedMcp, setCopiedMcp] = useState(false);
   const copyInstall = () => {
     try {
       navigator.clipboard.writeText('uvx legend-lens .');
       setCopied(true);
       window.setTimeout(() => setCopied(false), 1500);
+    } catch { /* clipboard unavailable on non-HTTPS hosts */ }
+  };
+  const copyMcp = () => {
+    try {
+      navigator.clipboard.writeText('uvx --from "legend-lens[mcp]" legend mcp --repo .');
+      setCopiedMcp(true);
+      window.setTimeout(() => setCopiedMcp(false), 1500);
     } catch { /* clipboard unavailable on non-HTTPS hosts */ }
   };
   useEffect(() => {
@@ -426,6 +443,53 @@ const Legend: React.FC = () => {
                   </div>
                 </article>
               ))}
+            </div>
+          </div>
+        </section>
+
+        {/* ── For coding agents (MCP) ── */}
+        <section className="lg-mcp" id="mcp">
+          <div className="container">
+            <div className="lg-sec-head">
+              <span className="lg-eyebrow">For coding agents · MCP</span>
+              <h2 className="lg-sec-title">Give your AI agent a map of the code</h2>
+              <p className="lg-sec-sub">
+                Legend runs as an <span className="lg-accent">MCP server</span> — Claude Code, Cursor, Zed,
+                Windsurf and any MCP client get deterministic answers about your codebase, the kind that
+                otherwise cost an agent a dozen greps and tens of thousands of tokens. One call, one answer.
+              </p>
+            </div>
+
+            <div className="lg-install lg-install--mcp">
+              <span className="lg-install__cmd"><span className="lg-install__sym">$</span> uvx --from <span className="lg-install__pkg">"legend-lens[mcp]"</span> legend mcp --repo .</span>
+              <button type="button" className={'lg-install__copy' + (copiedMcp ? ' is-ok' : '')} onClick={copyMcp} aria-label={copiedMcp ? 'Copied' : 'Copy command'}>
+                {copiedMcp ? (
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
+                ) : (
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" /><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" /></svg>
+                )}
+              </button>
+            </div>
+
+            <div className="lg-mcp__tools">
+              {MCP_TOOLS.map((t) => (
+                <div className="lg-mcp__tool" key={t.name}>
+                  <code>{t.name}</code>
+                  <span>{t.desc}</span>
+                </div>
+              ))}
+            </div>
+
+            <div className="lg-mcp__platforms">
+              <span className="lg-mcp__plabel">Works in</span>
+              {['Claude Code', 'Cursor', 'Zed', 'Windsurf', 'Cline', 'Continue', 'Claude Desktop'].map((p) => (
+                <span className="lg-chip" key={p}>{p}</span>
+              ))}
+            </div>
+
+            <div className="lg-mcp__actions">
+              <a href="./docs.html#mcp" className="lg-btn lg-btn--green">Read the MCP guide →</a>
+              <a href={GITHUB_URL} className="lg-btn lg-btn--ghost" target="_blank" rel="noopener noreferrer">View on GitHub</a>
             </div>
           </div>
         </section>

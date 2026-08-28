@@ -161,24 +161,50 @@ Once the browser is open, you'll find these tabs:
 
 ## Use with coding agents (MCP)
 
-Legend also runs as an [MCP](https://modelcontextprotocol.io) server, giving coding agents (Claude Code, Claude Desktop, Cursor, Windsurf, Zed, Continue, Cline — anything that speaks MCP) **deterministic** answers about your code's structure. These are the questions that otherwise cost an agent a dozen greps and tens of thousands of tokens to approximate — here they're one call each.
+Legend runs as an [MCP](https://modelcontextprotocol.io) server, giving any MCP client — Claude Code, Claude Desktop, Cursor, Windsurf, Zed, Cline, Continue — **deterministic** answers about your code's structure. These are the questions that otherwise cost an agent a dozen greps and tens of thousands of tokens to approximate. The pitch is **cost and determinism**, not smarter answers: one call, one verifiable result.
+
+Launch it (the `[mcp]` extra pulls the small MCP SDK):
 
 ```bash
 uvx --from "legend-lens[mcp]" legend mcp --repo .
 # or, once installed:  pip install "legend-lens[mcp]"   then   legend mcp --repo .
 ```
 
-Point your MCP client at it:
+> **Full walkthrough:** the [documentation site](https://samratrajsharma.github.io/legend/docs.html#mcp) has step-by-step setup for every client.
+
+### Universal config
+
+Most clients accept this standard `mcpServers` block — add it to the client's MCP config:
 
 ```json
 {
   "mcpServers": {
-    "legend": { "command": "uvx", "args": ["--from", "legend-lens[mcp]", "legend", "mcp", "--repo", "."] }
+    "legend": {
+      "command": "uvx",
+      "args": ["--from", "legend-lens[mcp]", "legend", "mcp", "--repo", "."]
+    }
   }
 }
 ```
 
-Tools exposed (all read-only, one deterministic call each):
+For desktop apps that don't launch in your project directory, replace `--repo .` with an absolute path (e.g. `--repo /Users/you/project`). Each server instance indexes one repo.
+
+### Per-platform setup
+
+| Client | How to add it |
+|--------|---------------|
+| **Claude Code** | `claude mcp add legend -- uvx --from "legend-lens[mcp]" legend mcp --repo .` — then `/mcp` to confirm. |
+| **Claude Desktop** | Add the universal block to `claude_desktop_config.json` (macOS: `~/Library/Application Support/Claude/`; Windows: `%APPDATA%\Claude\`), then restart. |
+| **Cursor** | Create `.cursor/mcp.json` in your project (or `~/.cursor/mcp.json`) with the universal block. |
+| **Windsurf** | Settings → Cascade → MCP, or edit `~/.codeium/windsurf/mcp_config.json`, and add the universal block. |
+| **Zed** | Use `context_servers` in `settings.json` — see the [docs](https://samratrajsharma.github.io/legend/docs.html#mcp) for the exact shape. |
+| **Cline / Continue** | Add the universal `mcpServers` block to the client's MCP settings file. |
+
+> Client config formats evolve — if a path differs, search for “MCP” in your client's settings and paste the universal block. The command and args are identical everywhere.
+
+### Tools
+
+All read-only, one deterministic call each:
 
 | Tool | Answers |
 |------|---------|

@@ -22,7 +22,8 @@ const Navbar: React.FC = () => {
         <ul className="lg-nav__links">
           <li><a href="#how-it-works">How it works</a></li>
           <li><a href="#what-you-get">What you get</a></li>
-          <li><a href={DOCS_URL} target="_blank" rel="noopener noreferrer">Docs</a></li>
+          <li><a href="#mcp">MCP</a></li>
+          <li><a href={DOCS_URL}>Docs</a></li>
         </ul>
 
         <div className="lg-nav__cta">
