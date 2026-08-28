@@ -25,6 +25,7 @@ build/
 # ───────────── App runtime state & caches (tracked repos, Chroma index, timeline snapshots) ─────────────
 .cache/
 .legend_cache/
+.knowit_cache/
 *.log
 
 # ───────────── Secrets & local env ─────────────
