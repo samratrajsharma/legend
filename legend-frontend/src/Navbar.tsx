@@ -12,22 +12,22 @@ const Navbar: React.FC = () => {
   }, []);
 
   return (
-    <nav className={'kn-nav' + (scrolled ? ' kn-nav--scrolled' : '')}>
-      <div className="kn-nav__inner">
-        <a href="#kyc-top" className="kn-nav__brand">
-          <Logo className="kn-nav__mark" size={20} />
-          <span className="kn-nav__name">Legend</span>
+    <nav className={'lg-nav' + (scrolled ? ' lg-nav--scrolled' : '')}>
+      <div className="lg-nav__inner">
+        <a href="#lg-top" className="lg-nav__brand">
+          <Logo className="lg-nav__mark" size={20} />
+          <span className="lg-nav__name">Legend</span>
         </a>
 
-        <ul className="kn-nav__links">
+        <ul className="lg-nav__links">
           <li><a href="#how-it-works">How it works</a></li>
           <li><a href="#what-you-get">What you get</a></li>
           <li><a href={DOCS_URL} target="_blank" rel="noopener noreferrer">Docs</a></li>
         </ul>
 
-        <div className="kn-nav__cta">
-          <a className="kn-nav__ghost" href={GITHUB_URL} target="_blank" rel="noopener noreferrer">GitHub</a>
-          <a className="kn-nav__btn" href="#install">Install</a>
+        <div className="lg-nav__cta">
+          <a className="lg-nav__ghost" href={GITHUB_URL} target="_blank" rel="noopener noreferrer">GitHub</a>
+          <a className="lg-nav__btn" href="#install">Install</a>
         </div>
       </div>
     </nav>

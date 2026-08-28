@@ -114,12 +114,12 @@ function renderViz(mode: number) {
     return (
       <svg viewBox="0 0 172 250" className="viz" preserveAspectRatio="xMidYMid meet">
         <defs>
-          <marker id="kyc-arrow" viewBox="0 0 8 8" refX="6.4" refY="4" markerWidth="5" markerHeight="5" orient="auto-start-reverse">
+          <marker id="lg-arrow" viewBox="0 0 8 8" refX="6.4" refY="4" markerWidth="5" markerHeight="5" orient="auto-start-reverse">
             <path d="M1 1 L6.4 4 L1 7" fill="none" stroke="#1DB954" strokeWidth="1.2" />
           </marker>
         </defs>
         {EDGES.map(([a, b], i) => (
-          <path key={i} className="viz-edge" d={edgePath(a, b)} markerEnd="url(#kyc-arrow)" style={{ animationDelay: (0.6 + i * 0.32) + 's' }} />
+          <path key={i} className="viz-edge" d={edgePath(a, b)} markerEnd="url(#lg-arrow)" style={{ animationDelay: (0.6 + i * 0.32) + 's' }} />
         ))}
         {NODES.map((n, i) => { const w = n.id.length * 5.2 + 16; return (
           <g key={n.id} className="viz-gnode" style={{ animationDelay: (i * 0.34) + 's' }}>
@@ -221,7 +221,7 @@ const FEATURES: Feature[] = [
 
 function letters(text: string, base: number, green: boolean) {
   return text.split('').map((ch, i) => (
-    <span key={i} className={'kyc-ltr' + (green ? ' kyc-ltr--g' : '')} style={{ animationDelay: (base + i * 0.04) + 's' }}>
+    <span key={i} className={'lg-ltr' + (green ? ' lg-ltr--g' : '')} style={{ animationDelay: (base + i * 0.04) + 's' }}>
       {ch === ' ' ? ' ' : ch}
     </span>
   ));
@@ -246,45 +246,45 @@ const Legend: React.FC = () => {
   const fs = FILESETS[scanning ? stage : 0];
 
   return (
-    <div className="app kyc-page">
+    <div className="app lg-page">
       <Navbar />
       <main>
         {/* ── Hero — scanning laptop ── */}
-        <section className="kyc-hero" id="kyc-top">
-          <div className="kyc-hero__bg" aria-hidden="true" />
-          <div className="container kyc-hero__inner">
-            <h1 className="kyc-hero__title" aria-label="Open a repo you have never seen. Understand it in minutes.">
-              <span className="kyc-hero__line" aria-hidden="true">{letters('Open a repo you have never seen.', 0, false)}</span>
-              <span className="kyc-hero__line" aria-hidden="true">{letters('Understand it in minutes.', 1.45, true)}</span>
+        <section className="lg-hero" id="lg-top">
+          <div className="lg-hero__bg" aria-hidden="true" />
+          <div className="container lg-hero__inner">
+            <h1 className="lg-hero__title" aria-label="Open a repo you have never seen. Understand it in minutes.">
+              <span className="lg-hero__line" aria-hidden="true">{letters('Open a repo you have never seen.', 0, false)}</span>
+              <span className="lg-hero__line" aria-hidden="true">{letters('Understand it in minutes.', 1.45, true)}</span>
             </h1>
 
-            <div className={'kyc-laptop' + (scanning ? '' : ' kyc-laptop--done')} aria-hidden="true">
-              <div className="kyc-laptop__screen">
-                <div className="kyc-ide">
+            <div className={'lg-laptop' + (scanning ? '' : ' lg-laptop--done')} aria-hidden="true">
+              <div className="lg-laptop__screen">
+                <div className="lg-ide">
                   {scanning ? (
                     <>
-                      <div className="kyc-ide__chrome">
-                        <span className="kyc-ide__dots"><i /><i /><i /></span>
-                        <span className="kyc-ide__tab">{fs.tab}</span>
-                        <span className="kyc-ide__live"><span className="kyc-ide__pulse" /> scan · {fs.name}</span>
+                      <div className="lg-ide__chrome">
+                        <span className="lg-ide__dots"><i /><i /><i /></span>
+                        <span className="lg-ide__tab">{fs.tab}</span>
+                        <span className="lg-ide__live"><span className="lg-ide__pulse" /> scan · {fs.name}</span>
                       </div>
 
-                      <div className="kyc-ide__main" key={stage}>
-                        <aside className="kyc-tree">
+                      <div className="lg-ide__main" key={stage}>
+                        <aside className="lg-tree">
                           {FILES.map((f, i) => (
-                            <div className={'kyc-tree__row' + (f === fs.active ? ' kyc-tree__row--active' : '')} key={f} style={{ animationDelay: i * 0.12 + 's' }}>
-                              <span className="kyc-tree__check" style={{ animationDelay: i * 0.12 + 's' }} />
-                              <span className="kyc-tree__name">{f}</span>
+                            <div className={'lg-tree__row' + (f === fs.active ? ' lg-tree__row--active' : '')} key={f} style={{ animationDelay: i * 0.12 + 's' }}>
+                              <span className="lg-tree__check" style={{ animationDelay: i * 0.12 + 's' }} />
+                              <span className="lg-tree__name">{f}</span>
                             </div>
                           ))}
                         </aside>
 
-                        <div className="kyc-code">
-                          <div className="kyc-code__scroll">
+                        <div className="lg-code">
+                          <div className="lg-code__scroll">
                             {fs.code.map((line, i) => (
-                              <div className="kyc-code__row" key={i}>
-                                <span className="kyc-code__ln">{i + 1}</span>
-                                <span className="kyc-code__txt">
+                              <div className="lg-code__row" key={i}>
+                                <span className="lg-code__ln">{i + 1}</span>
+                                <span className="lg-code__txt">
                                   {line.map((tok, j) => (
                                     <span key={j} className={tok[1] ? 't-' + tok[1] : ''}>{tok[0]}</span>
                                   ))}
@@ -292,73 +292,73 @@ const Legend: React.FC = () => {
                               </div>
                             ))}
                           </div>
-                          <div className="kyc-scan" />
-                          <div className="kyc-scan__line"><span className="kyc-scan__tag">scanning…</span></div>
+                          <div className="lg-scan" />
+                          <div className="lg-scan__line"><span className="lg-scan__tag">scanning…</span></div>
                           {fs.detects.map((d, i) => (
-                            <span key={i} className={'kyc-detect kyc-detect--' + (i + 1)}>{d}</span>
+                            <span key={i} className={'lg-detect lg-detect--' + (i + 1)}>{d}</span>
                           ))}
                         </div>
 
-                        <div className="kyc-graph">{renderViz(stage)}</div>
+                        <div className="lg-graph">{renderViz(stage)}</div>
                       </div>
 
-                      <div className="kyc-ide__hud" key={'h' + stage}>
-                        <div className="kyc-hud__bar"><span className="kyc-hud__fill" /></div>
-                        <span className="kyc-hud__pct" />
-                        <span className="kyc-hud__step">{fs.step}…</span>
-                        <span className="kyc-hud__stat">{fs.stat}</span>
+                      <div className="lg-ide__hud" key={'h' + stage}>
+                        <div className="lg-hud__bar"><span className="lg-hud__fill" /></div>
+                        <span className="lg-hud__pct" />
+                        <span className="lg-hud__step">{fs.step}…</span>
+                        <span className="lg-hud__stat">{fs.stat}</span>
                       </div>
                     </>
                   ) : (
                     <>
-                      <div className="kyc-ide__chrome">
-                        <span className="kyc-ide__dots"><i /><i /><i /></span>
-                        <span className="kyc-ide__tab">Overview · payments-service</span>
-                        <span className="kyc-ide__live kyc-ide__live--done"><span className="kyc-ide__pulse" /> scan complete</span>
+                      <div className="lg-ide__chrome">
+                        <span className="lg-ide__dots"><i /><i /><i /></span>
+                        <span className="lg-ide__tab">Overview · payments-service</span>
+                        <span className="lg-ide__live lg-ide__live--done"><span className="lg-ide__pulse" /> scan complete</span>
                       </div>
-                      <div className="kyc-dash">
-                        <div className="kyc-dash__stats">
+                      <div className="lg-dash">
+                        <div className="lg-dash__stats">
                           {STATS.map((s, i) => (
-                            <div className="kyc-dstat" key={s.l} style={{ animationDelay: (i * 0.07) + 's' }}>
-                              <span className={'kyc-dstat__n' + (s.c === 'g' ? ' is-green' : s.c === 'a' ? ' is-amber' : '')}>{s.n}</span>
-                              <span className="kyc-dstat__l">{s.l}</span>
+                            <div className="lg-dstat" key={s.l} style={{ animationDelay: (i * 0.07) + 's' }}>
+                              <span className={'lg-dstat__n' + (s.c === 'g' ? ' is-green' : s.c === 'a' ? ' is-amber' : '')}>{s.n}</span>
+                              <span className="lg-dstat__l">{s.l}</span>
                             </div>
                           ))}
                         </div>
-                        <div className="kyc-dash__grid">
-                          <div className="kyc-dpanel">
+                        <div className="lg-dash__grid">
+                          <div className="lg-dpanel">
                             <h4>Languages</h4>
                             {LANGS.map((l, i) => (
-                              <div className="kyc-drow" key={l.name} style={{ animationDelay: (0.25 + i * 0.06) + 's' }}>
-                                <span className="kyc-drow__name">{l.name}</span>
-                                <span className="kyc-dbar"><span style={{ width: l.pct + '%', animationDelay: (0.35 + i * 0.08) + 's' }} /></span>
+                              <div className="lg-drow" key={l.name} style={{ animationDelay: (0.25 + i * 0.06) + 's' }}>
+                                <span className="lg-drow__name">{l.name}</span>
+                                <span className="lg-dbar"><span style={{ width: l.pct + '%', animationDelay: (0.35 + i * 0.08) + 's' }} /></span>
                               </div>
                             ))}
                           </div>
-                          <div className="kyc-dpanel">
+                          <div className="lg-dpanel">
                             <h4>Most complex symbols</h4>
                             {COMPLEX.map((c, i) => (
-                              <div className="kyc-drow" key={c.s} style={{ animationDelay: (0.25 + i * 0.06) + 's' }}>
-                                <span className="kyc-drow__sym">{c.s}</span>
-                                <span className="kyc-drow__v">{c.v}</span>
+                              <div className="lg-drow" key={c.s} style={{ animationDelay: (0.25 + i * 0.06) + 's' }}>
+                                <span className="lg-drow__sym">{c.s}</span>
+                                <span className="lg-drow__v">{c.v}</span>
                               </div>
                             ))}
                           </div>
-                          <div className="kyc-dpanel">
+                          <div className="lg-dpanel">
                             <h4>Hub files</h4>
                             {HUB.map((h, i) => (
-                              <div className="kyc-drow" key={h.f} style={{ animationDelay: (0.3 + i * 0.06) + 's' }}>
-                                <span className="kyc-drow__sym">{h.f}</span>
-                                <span className="kyc-drow__v kyc-drow__v--g">{h.v}</span>
+                              <div className="lg-drow" key={h.f} style={{ animationDelay: (0.3 + i * 0.06) + 's' }}>
+                                <span className="lg-drow__sym">{h.f}</span>
+                                <span className="lg-drow__v lg-drow__v--g">{h.v}</span>
                               </div>
                             ))}
                           </div>
-                          <div className="kyc-dpanel">
+                          <div className="lg-dpanel">
                             <h4>Likely unused</h4>
                             {UNUSED.map((u, i) => (
-                              <div className="kyc-drow" key={u.s + i} style={{ animationDelay: (0.3 + i * 0.06) + 's' }}>
-                                <span className="kyc-drow__sym">{u.s}</span>
-                                <span className="kyc-drow__path">{u.f}</span>
+                              <div className="lg-drow" key={u.s + i} style={{ animationDelay: (0.3 + i * 0.06) + 's' }}>
+                                <span className="lg-drow__sym">{u.s}</span>
+                                <span className="lg-drow__path">{u.f}</span>
                               </div>
                             ))}
                           </div>
@@ -368,61 +368,61 @@ const Legend: React.FC = () => {
                   )}
                 </div>
               </div>
-              <div className="kyc-laptop__base"><span className="kyc-laptop__lip" /></div>
-              <div className="kyc-laptop__shadow" />
+              <div className="lg-laptop__base"><span className="lg-laptop__lip" /></div>
+              <div className="lg-laptop__shadow" />
             </div>
 
-            <div className="kyc-prog" aria-hidden="true">
-              <span className="kyc-prog__cap">Input</span>
-              <span className="kyc-prog__track"><span className="kyc-prog__fill" style={{ width: (((stage + 1) / 5) * 100) + '%' }} /></span>
-              <span className={'kyc-prog__cap' + (scanning ? '' : ' is-on')}>Output</span>
+            <div className="lg-prog" aria-hidden="true">
+              <span className="lg-prog__cap">Input</span>
+              <span className="lg-prog__track"><span className="lg-prog__fill" style={{ width: (((stage + 1) / 5) * 100) + '%' }} /></span>
+              <span className={'lg-prog__cap' + (scanning ? '' : ' is-on')}>Output</span>
             </div>
           </div>
         </section>
 
         {/* ── How it works ── */}
-        <section className="kyc-how" id="how-it-works">
+        <section className="lg-how" id="how-it-works">
           <div className="container">
-            <div className="kyc-sec-head">
-              <span className="kyc-eyebrow">How it works</span>
-              <h2 className="kyc-sec-title">From a cold repo to a living map</h2>
-              <p className="kyc-sec-sub">What actually happens between “point it at a folder” and “ask it anything.”</p>
+            <div className="lg-sec-head">
+              <span className="lg-eyebrow">How it works</span>
+              <h2 className="lg-sec-title">From a cold repo to a living map</h2>
+              <p className="lg-sec-sub">What actually happens between “point it at a folder” and “ask it anything.”</p>
             </div>
-            <div className="kyc-steps">
+            <div className="lg-steps">
               {STEPS.map((s) => (
-                <div className="kyc-step" key={s.n}>
-                  <div className="kyc-step__head"><span className="kyc-step__dot" /><span className="kyc-step__n">{s.n}</span></div>
-                  <h3 className="kyc-step__title">{s.title}</h3>
-                  <p className="kyc-step__body">{s.body}</p>
+                <div className="lg-step" key={s.n}>
+                  <div className="lg-step__head"><span className="lg-step__dot" /><span className="lg-step__n">{s.n}</span></div>
+                  <h3 className="lg-step__title">{s.title}</h3>
+                  <p className="lg-step__body">{s.body}</p>
                 </div>
               ))}
             </div>
-            <p className="kyc-how__note">
+            <p className="lg-how__note">
               Every step runs on your machine. Bring your own LLM — OpenAI, Anthropic, Groq, or a local
-              Ollama model — for explanations and Q&amp;A. <span className="kyc-accent">Your code never leaves your computer.</span>
+              Ollama model — for explanations and Q&amp;A. <span className="lg-accent">Your code never leaves your computer.</span>
             </p>
           </div>
         </section>
 
         {/* ── Features ── */}
-        <section className="kyc-features" id="what-you-get">
+        <section className="lg-features" id="what-you-get">
           <div className="container">
-            <div className="kyc-sec-head">
-              <span className="kyc-eyebrow">What you get</span>
-              <h2 className="kyc-sec-title">Everything you need to actually know a codebase</h2>
-              <p className="kyc-sec-sub">
+            <div className="lg-sec-head">
+              <span className="lg-eyebrow">What you get</span>
+              <h2 className="lg-sec-title">Everything you need to actually know a codebase</h2>
+              <p className="lg-sec-sub">
                 Not a one-time analyzer — a living understanding of your project that stays current as
                 you and your AI tools reshape it.
               </p>
             </div>
-            <div className="kyc-deck">
+            <div className="lg-deck">
               {FEATURES.map((f, i) => (
-                <article className="kyc-block" key={f.title}>
-                  <div className="kyc-block__inner">
-                    <span className="kyc-block__num">{('0' + (i + 1)).slice(-2)}</span>
-                    <h3 className="kyc-block__title">{f.title}</h3>
-                    <p className="kyc-block__desc">{f.desc}</p>
-                    <span className="kyc-block__ghost" aria-hidden="true">{('0' + (i + 1)).slice(-2)}</span>
+                <article className="lg-block" key={f.title}>
+                  <div className="lg-block__inner">
+                    <span className="lg-block__num">{('0' + (i + 1)).slice(-2)}</span>
+                    <h3 className="lg-block__title">{f.title}</h3>
+                    <p className="lg-block__desc">{f.desc}</p>
+                    <span className="lg-block__ghost" aria-hidden="true">{('0' + (i + 1)).slice(-2)}</span>
                   </div>
                 </article>
               ))}
@@ -431,16 +431,16 @@ const Legend: React.FC = () => {
         </section>
 
         {/* ── Closing CTA ── */}
-        <section className="kyc-cta" id="install">
-          <div className="container kyc-cta__inner">
-            <h2 className="kyc-cta__title">Run it on your own codebase.</h2>
-            <p className="kyc-cta__sub">
+        <section className="lg-cta" id="install">
+          <div className="container lg-cta__inner">
+            <h2 className="lg-cta__title">Run it on your own codebase.</h2>
+            <p className="lg-cta__sub">
               Legend is open source and runs entirely on your machine. Install it, point it at any
               repository, and the map builds itself — your code never leaves your computer.
             </p>
-            <div className="kyc-install">
-              <span className="kyc-install__cmd"><span className="kyc-install__sym">$</span> uvx <span className="kyc-install__pkg">legend-lens</span> .</span>
-              <button type="button" className={'kyc-install__copy' + (copied ? ' is-ok' : '')} onClick={copyInstall} aria-label={copied ? 'Copied' : 'Copy install command'}>
+            <div className="lg-install">
+              <span className="lg-install__cmd"><span className="lg-install__sym">$</span> uvx <span className="lg-install__pkg">legend-lens</span> .</span>
+              <button type="button" className={'lg-install__copy' + (copied ? ' is-ok' : '')} onClick={copyInstall} aria-label={copied ? 'Copied' : 'Copy install command'}>
                 {copied ? (
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
                 ) : (
@@ -448,10 +448,10 @@ const Legend: React.FC = () => {
                 )}
               </button>
             </div>
-            <span className="kyc-install__hint">runs instantly with <a href="https://docs.astral.sh/uv/" target="_blank" rel="noopener noreferrer">uv</a> — or install it: <code>pipx install legend-lens</code> · <code>pip install legend-lens</code></span>
-            <div className="kyc-cta__actions">
-              <a href={DOCS_URL} className="kyc-btn kyc-btn--green" target="_blank" rel="noopener noreferrer">Read the docs →</a>
-              <a href={GITHUB_URL} className="kyc-btn kyc-btn--ghost" target="_blank" rel="noopener noreferrer">View on GitHub</a>
+            <span className="lg-install__hint">runs instantly with <a href="https://docs.astral.sh/uv/" target="_blank" rel="noopener noreferrer">uv</a> — or install it: <code>pipx install legend-lens</code> · <code>pip install legend-lens</code></span>
+            <div className="lg-cta__actions">
+              <a href={DOCS_URL} className="lg-btn lg-btn--green" target="_blank" rel="noopener noreferrer">Read the docs →</a>
+              <a href={GITHUB_URL} className="lg-btn lg-btn--ghost" target="_blank" rel="noopener noreferrer">View on GitHub</a>
             </div>
           </div>
         </section>

@@ -1,2 +1,0 @@
-/* Home-specific tweaks; shared rhythm lives in kyc.css */
-@media (max-width: 720px) { .kyc-hero { grid-template-columns: 1fr; } }
