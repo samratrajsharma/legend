@@ -5,9 +5,14 @@
 **Local-first codebase intelligence.** Point Legend at any repository or folder and it maps the architecture, explains files, answers plain-English questions with your own LLM, and tracks how the code changes over time — all on your machine.
 
 [![PyPI](https://img.shields.io/pypi/v/legend-lens?color=1ED760&label=legend-lens)](https://pypi.org/project/legend-lens/)
+[![Website](https://img.shields.io/badge/website-live-1ED760)](https://samratrajsharma.github.io/legend/)
 ![Python](https://img.shields.io/badge/python-3.10+-3776AB)
 ![local-first](https://img.shields.io/badge/local--first-100%25-1ED760)
 ![License](https://img.shields.io/badge/license-MIT-blue)
+
+### [→ Visit the live website](https://samratrajsharma.github.io/legend/)
+
+**[Website](https://samratrajsharma.github.io/legend/)** · [PyPI](https://pypi.org/project/legend-lens/) · [Quick start](#quick-start) · [Report a bug](https://github.com/samratrajsharma/legend/issues)
 
 </div>
 
