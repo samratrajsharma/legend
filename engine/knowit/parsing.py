@@ -462,7 +462,7 @@ def _js_call_sites(masked_body, import_names, self_names=("this",)):
 
 def parse_js(rel_path, source, language):
     lines = source.splitlines()
-    pf = ParsedFile(file=rel_path, language=language, text=source, loc=len(lines) + 1)
+    pf = ParsedFile(file=rel_path, language=language, text=source, loc=source.count("\n") + 1)
 
     # P2-4: skip minified / generated blobs - deep parsing them is quadratic and useless
     longest = max((len(l) for l in lines), default=0)

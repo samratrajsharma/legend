@@ -148,6 +148,18 @@ _TABLE = _re.compile(r'__tablename__\s*=\s*["\']([^"\']+)')
 _DB_BASES = {"base", "model", "declarativebase", "sqlmodel"}
 _ORM_MARKERS = ("import sqlalchemy", "from sqlalchemy", "django.db", "sqlmodel",
                 "import peewee", "from peewee", "tortoise")
+# Receivers that are HTTP CLIENTS, not servers: `axios.get('/x')` defines no route (QA audit).
+_JS_CLIENT_RECV = {"axios", "fetch", "http", "https", "got", "ky", "request", "superagent",
+                   "xhr", "instance", "client", "api"}
+# Decorator receivers that aren't web routers: `@cache.get("k")` is not a route.
+_PY_NON_ROUTE_RECV = {"cache", "lru_cache", "functools", "memoize", "redis"}
+_PY_COMMENT = _re.compile(r"#[^\n]*")
+
+
+def _strip_py_comments(s: str) -> str:
+    """Blank out `# ...` line comments (newlines kept, so line numbers are preserved) so ORM
+    markers mentioned in a comment don't count as real declarations (QA audit)."""
+    return _PY_COMMENT.sub("", s or "")
 
 
 def language_breakdown(idx):
@@ -173,6 +185,8 @@ def api_map(idx):
         txt = p.text or ""
         if p.language == "python":
             for m in _PY_ROUTE.finditer(txt):
+                if m.group(1).lower() in _PY_NON_ROUTE_RECV:
+                    continue                            # @cache.get(...) etc., not a route
                 verb, path, rest = m.group(2).lower(), m.group(3), (m.group(4) or "")
                 if verb == "route":
                     mm = _METHODS.search(rest)
@@ -183,6 +197,8 @@ def api_map(idx):
                     out.append({"method": verb.upper(), "path": path, "file": p.file})
         elif p.language in ("javascript", "typescript"):
             for m in _JS_ROUTE.finditer(txt):
+                if m.group(1).lower() in _JS_CLIENT_RECV:
+                    continue                            # axios.get(...) is a client call, not a route
                 verb = m.group(2).upper()
                 verb = "ANY" if verb in ("USE", "ALL") else verb
                 out.append({"method": verb, "path": m.group(3), "file": p.file})
@@ -202,9 +218,10 @@ def db_map(idx):
                  if any(k in (p.text or "").lower() for k in _ORM_MARKERS)}
     tables_by_file = {}
     for p in idx.parsed_files:
+        clean = _strip_py_comments(p.text or "")     # a __tablename__ in a comment isn't a table
         occ = []
-        for m in _TABLE.finditer(p.text or ""):
-            occ.append(((p.text[:m.start()].count("\n")) + 1, m.group(1)))
+        for m in _TABLE.finditer(clean):
+            occ.append((clean[:m.start()].count("\n") + 1, m.group(1)))
         if occ:
             tables_by_file[p.file] = occ
     out = []
@@ -215,7 +232,7 @@ def db_map(idx):
             bs = [b.split(".")[-1].lower() for b in (s2.bases or [])]
             if not any(b in _DB_BASES for b in bs):
                 continue
-            body = s2.code or ""
+            body = _strip_py_comments(s2.code or "")   # markers in comments don't count (audit)
             # __tablename__ is an unambiguous ORM declaration on its own - accept regardless
             # of imports. Column/mapped_column/db. are strong too. Only the weak base-name
             # signal (class ...(Model)) needs an ORM-looking file to avoid ML false positives.
