@@ -2,120 +2,200 @@
 
 # Legend
 
-**Local-first codebase intelligence.** Point it at a repository or folder and it maps the architecture, explains files, answers questions with your own LLM, and tracks how the code changes over time — all on your machine. Analysis is deepest for **Python** today (full AST); JavaScript/TypeScript support is best-effort and other languages are on the roadmap.
+**Local-first codebase intelligence.** Point Legend at any repository or folder and it maps the architecture, explains files, answers plain-English questions with your own LLM, and tracks how the code changes over time — all on your machine.
 
+[![PyPI](https://img.shields.io/pypi/v/legend-lens?color=1ED760&label=legend-lens)](https://pypi.org/project/legend-lens/)
 ![Python](https://img.shields.io/badge/python-3.10+-3776AB)
-![React](https://img.shields.io/badge/react-19-149ECA)
-![FastAPI](https://img.shields.io/badge/backend-FastAPI-009688)
 ![local-first](https://img.shields.io/badge/local--first-100%25-1ED760)
+![License](https://img.shields.io/badge/license-MIT-blue)
 
 </div>
 
 ---
 
-Legend (engine name `legend`) turns an unfamiliar codebase into something you can actually navigate. Connect a Git URL or a local folder; it indexes the code once — symbols, a call/import graph, and searchable embeddings — and every view after that reads from that single in-memory index. It runs entirely on your machine: the only things that ever leave are the initial `git clone` and, if you choose, calls to an LLM you configure.
+Legend indexes a codebase **once** — symbols, a call/import graph, and searchable embeddings — then every view reads from that single in-memory index. It runs entirely on your machine: the only things that ever leave are the initial `git clone` and, if you choose to enable AI answers, calls to an LLM you configure. No account, no telemetry, no cloud.
 
-## Features
+> **Package name:** the PyPI project is **`legend-lens`** (PyPI reserves the bare name `legend`). The command it installs is just **`legend`**.
 
-- **Ask your codebase** — plain-English questions answered with retrieval-augmented generation. Hybrid search (BM25 + on-device semantic embeddings, fused with Reciprocal Rank Fusion) is expanded through the call graph, so answers pull in related code you didn't name. Responses stream token-by-token with cited sources.
-- **Overview** — files, languages, lines of code, hub files, entry points, most-complex symbols, likely-dead code, and the rendered README at a glance.
-- **Files** — browse the tree with per-file summaries and clickable symbol chips; a per-function explainer shows code plus callers and callees. Markdown files render as formatted markdown.
-- **Insight Graph** — an interactive, pannable architecture map that groups files into areas and draws their dependencies.
-- **API & DB** — auto-detected HTTP routes (FastAPI and Flask) and ORM/data models.
-- **Timeline & Track** — a living, LLM-free record of what changed over time via structural fingerprint diffs, plus on-demand structural diffs between any two commits. Git history is imported merge-aware, so every commit shows its files.
-- **Intel** — tech-debt analysis: dead code, import cycles, complexity hotspots, god files, near-duplicates, and undocumented symbols.
-- **Download report** — export a full analysis of any repo as Markdown, Word (`.docx`), or PDF, from any tab.
-- **Bring your own model** — OpenAI, Anthropic, Google Gemini, Groq, OpenRouter, local Ollama, or any OpenAI-compatible endpoint. No key required: indexing, search, structure, and tracking all work offline; only synthesized answers and explanations need a model.
+## Contents
 
-## How it works
+- [Quick start](#quick-start)
+- [Installation](#installation)
+  - [Optional features (extras)](#optional-features-extras)
+- [Using the `legend` command](#using-the-legend-command)
+  - [Command-line options](#command-line-options)
+  - [Examples](#examples)
+- [Using the app](#using-the-app)
+- [Enabling AI answers (bring your own model)](#enabling-ai-answers-bring-your-own-model)
+- [Configuration reference](#configuration-reference)
+- [Where your data lives](#where-your-data-lives)
+- [Updating & uninstalling](#updating--uninstalling)
+- [Troubleshooting & FAQ](#troubleshooting--faq)
+- [Language support](#language-support)
+- [How it works](#how-it-works)
+- [Privacy & security](#privacy--security)
+- [Run from source (development)](#run-from-source-development)
+- [Project structure](#project-structure)
+- [License](#license)
 
-Three components live side by side and wire together by relative path:
+## Quick start
 
-| Component | What it is |
-|-----------|------------|
-| `app/` | The product — a React + Vite frontend over a thin FastAPI backend. |
-| `engine/` | The `legend` Python package: indexing, retrieval, graph, tracking, analysis. |
-| `diagrams/` | `codemap` — a standalone, stdlib-only architecture-map generator. |
-
-Indexing runs in six stages: **ingest/clone → parse (AST for Python, regex for JS/TS) → build the code graph → chunk → build retrievers (BM25 + optional Chroma embeddings) → cache**. The result is an in-memory `RepoIndex`; every feature is a pure read over it. A full internals walkthrough lives in [`docs/how-it-works.html`](docs/how-it-works.html).
-
-## Install & run
-
-Legend ships as a single self-contained command that starts the app, indexes a repo, and opens your browser — no API key, config, or account needed. Structure, files, graph, search, and metrics all work offline; only the AI "Ask" answers need a model you configure later.
-
-The PyPI package is **`legend-lens`** (PyPI reserves the bare name `legend`); the command it installs is `legend`.
+If you have [`uv`](https://docs.astral.sh/uv/) installed, you don't need to install Legend at all:
 
 ```bash
-# zero-install: clone + index + open, in one command
-uvx legend-lens https://github.com/some/user/repo
-uvx legend-lens .                 # index the current folder
+uvx legend-lens .                                   # index the current folder
+uvx legend-lens https://github.com/pallets/click    # or clone + index any repo
 ```
 
-Or install it into your environment:
+Legend starts, indexes the code, and opens `http://127.0.0.1:8100` in your browser. Structure, files, search, the graph, and metrics all work immediately — **no API key or configuration required**.
+
+Don't have `uv`? Install it once with `pip install uv` (or see the [uv install guide](https://docs.astral.sh/uv/getting-started/installation/)), or use pip/pipx below.
+
+## Installation
+
+You need **Python 3.10+** and **git**. Pick whichever method suits you:
+
+| Method | Command | Best for |
+|--------|---------|----------|
+| **uvx** (zero-install) | `uvx legend-lens <repo>` | Trying it instantly; always runs the latest version |
+| **pipx** (isolated) | `pipx install legend-lens` | Keeping a permanent `legend` command without touching other environments |
+| **pip** (into a venv) | `pip install legend-lens` | Adding Legend to a project/virtual environment |
 
 ```bash
-pipx install legend-lens          # isolated; installs the `legend` command
-pip install legend-lens           # or into the current venv
-legend .                          # then point it at any repo or folder
+# uvx — nothing to install; downloads and runs on demand
+uvx legend-lens .
+
+# pipx — installs the `legend` command globally, isolated
+pipx install legend-lens
+legend .
+
+# pip — into your current (virtual) environment
+pip install legend-lens
+legend .
 ```
 
-`legend --help` covers the flags (`--port`, `--host`, `--data-dir`, `--no-open`). Optional extras add heavier features on top of the offline core: `pip install "legend-lens[semantic]"` (on-device semantic search), `[llm]` (AI answers), `[treesitter]` (10+ languages), `[export]` (`.docx`/`.pdf` reports), or `[all]`.
+After a pip/pipx install you have two equivalent commands: **`legend`** (short) and **`legend-lens`**.
 
-> **Building the wheel locally** (until it's on PyPI): the frontend is bundled into the package, so build it once first, then install.
-> ```bash
-> python scripts/build.py          # npm build -> app/backend/web/ (bundled into the wheel)
-> pip install .                    # now `legend <repo>` works
-> # or: uvx --from . legend .
-> ```
+### Optional features (extras)
 
-## Run from source (development)
+The base install is intentionally lean and fully offline. Heavier features are opt-in extras:
 
-**Requirements:** Python 3.10+ and Node.js 18+.
+| Extra | Adds | Install |
+|-------|------|---------|
+| `semantic` | On-device semantic search (ChromaDB embeddings) for better "Ask" and search results | `pip install "legend-lens[semantic]"` |
+| `llm` | AI answers & explanations (LiteLLM — routes to your chosen provider) | `pip install "legend-lens[llm]"` |
+| `treesitter` | Deeper parsing for 10+ languages (Go, Java, Rust, C#, Ruby, PHP, C, C++, …) | `pip install "legend-lens[treesitter]"` |
+| `export` | Download reports as Word (`.docx`) and PDF | `pip install "legend-lens[export]"` |
+| `all` | Everything above | `pip install "legend-lens[all]"` |
+
+With `uvx`, add extras via `--with`, e.g. `uvx --with "legend-lens[all]" legend-lens .` — or install the base and rely on the built-in BM25 search, which needs no extras.
+
+> **Note:** AI answers require **both** the `llm` extra **and** a configured model (see [Enabling AI answers](#enabling-ai-answers-bring-your-own-model)). Without them, everything else still works — search just uses the built-in BM25 index instead of embeddings.
+
+## Using the `legend` command
+
+The command takes one optional argument — what to open:
 
 ```bash
-git clone https://github.com/samratrajsharma/legend.git
-cd legend
+legend .                                  # index the folder you're in
+legend C:\path\to\project                 # index a specific local folder
+legend https://github.com/user/repo       # clone + index a remote repo
+legend                                     # just start the app; paste a repo in the browser
 ```
 
-### Windows (PowerShell)
+Whatever you pass, Legend launches the local web app on `http://127.0.0.1:8100` and opens your browser there. The repo appears in the sidebar and opens automatically once indexing finishes.
+
+### Command-line options
+
+```
+legend [source] [options]
+```
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `source` | *(none)* | A git URL, a local folder, or `.` for the current folder. Omit to start the app with nothing loaded. |
+| `--port <n>` | `8100` | Port to serve the app on. |
+| `--host <addr>` | `127.0.0.1` | Address to bind. Keep it on loopback unless you know you want otherwise. |
+| `--data-dir <path>` | `~/.legend/cache` | Where indexes and clones are cached between runs. |
+| `--no-open` | *(off)* | Don't automatically open the browser. |
+| `--help` | | Show all options and exit. |
+
+### Examples
+
+```bash
+# Open the current project
+legend .
+
+# Analyze a public repo on a different port, without auto-opening the browser
+legend https://github.com/pallets/flask --port 9000 --no-open
+# then visit http://127.0.0.1:9000 yourself
+
+# Keep each project's cache separate
+legend C:\work\service-a --data-dir C:\work\service-a\.legend
+
+# Start empty and paste a repo URL in the UI
+legend
+```
+
+To stop Legend, press **Ctrl+C** in the terminal where it's running.
+
+## Using the app
+
+Once the browser is open, you'll find these tabs:
+
+- **Overview** — the big picture: file and language counts, lines of code, hub files, entry points, most-complex symbols, likely-dead code, and the rendered README.
+- **Files** — browse the file tree with a per-file summary and clickable symbol chips. Click a function to see its code alongside its callers and callees. Markdown files render formatted.
+- **Ask** — type a plain-English question ("where is auth handled?", "what calls `build_index`?"). Answers stream in with cited source snippets. *(Requires a configured model — see below.)*
+- **Insight Graph** — an interactive, pannable map that groups files into areas and draws their dependencies. Pan, zoom, and click nodes to explore.
+- **API & DB** — auto-detected HTTP routes (FastAPI/Flask) and ORM/data models.
+- **Timeline & Track** — a running, LLM-free record of what changed over time from structural fingerprints, plus on-demand structural diffs between any two commits.
+- **Intel** — tech-debt analysis: dead code, import cycles, complexity hotspots, "god" files, near-duplicates, and undocumented symbols.
+- **Settings** — configure your LLM provider/model and search backend live, without restarting.
+- **Download report** — from any tab, export the full analysis as Markdown, or (with the `export` extra) Word/PDF.
+
+## Enabling AI answers (bring your own model)
+
+Indexing, structure, files, search, the graph, metrics, and tracking **all work offline with no model**. Only the **Ask** tab and per-function explanations call an LLM — and you bring your own.
+
+To turn them on:
+
+1. Install the AI extra: `pip install "legend-lens[llm]"` (or `[all]`).
+2. Configure a provider, either way:
+   - **In-app (easiest):** open the **Settings** tab, pick a provider, paste your key, choose a model. Takes effect immediately.
+   - **Environment variables:** set them before launching `legend` (see the table below).
+
+Supported providers:
+
+| Provider | `LEGEND_LLM_PROVIDER` | Key variable | Notes |
+|----------|----------------------|--------------|-------|
+| OpenAI | `openai` | `OPENAI_API_KEY` | |
+| Anthropic | `anthropic` | `ANTHROPIC_API_KEY` | |
+| Google Gemini | `gemini` | `GEMINI_API_KEY` | |
+| Groq | `groq` | `GROQ_API_KEY` | |
+| OpenRouter | `openrouter` | `OPENROUTER_API_KEY` | Access many models via one key |
+| Ollama | `ollama` | *(none)* | Local models; set `LEGEND_LLM_BASE_URL=http://localhost:11434` |
+| Custom | `custom` | *(varies)* | Any OpenAI-compatible endpoint via `LEGEND_LLM_BASE_URL` |
+
+Example (PowerShell):
 
 ```powershell
-cd app
-.\run.ps1
+$env:LEGEND_LLM_PROVIDER = "openai"
+$env:LEGEND_LLM_MODEL    = "gpt-4o-mini"
+$env:OPENAI_API_KEY      = "sk-..."
+legend .
 ```
 
-`run.ps1` creates a virtual environment, installs backend and frontend dependencies on first run, and launches both servers.
-
-### Any OS (manual)
+Example (macOS/Linux):
 
 ```bash
-# Backend  ->  http://localhost:8100
-cd app/backend
-pip install -r requirements.txt
-python main.py
-
-# Frontend ->  http://localhost:5273   (in a second terminal)
-cd app/frontend
-npm install
-npm run dev
+LEGEND_LLM_PROVIDER=anthropic LEGEND_LLM_MODEL=claude-3-5-sonnet-latest ANTHROPIC_API_KEY=sk-ant-... legend .
 ```
 
-Open **http://localhost:5273**, paste a Git URL or a local folder path, and connect.
+Your key stays on your machine and is used only to call the provider you chose.
 
-### Launcher flags (Windows)
+## Configuration reference
 
-| Command | Effect |
-|---------|--------|
-| `.\run.ps1` | Start backend (`:8100`) + frontend (`:5273`) |
-| `.\run.ps1 -Fresh` | Wipe all indexed repos, caches, and timeline history, then start |
-| `.\run.ps1 -Fresh -Yes` | Same, without the confirmation prompt |
-| `.\run.ps1 -Reload` | Start with backend hot-reload enabled |
-| `.\run.ps1 -Website` | Serve the marketing site only, on `:5300` |
-| `.\stop.ps1` | Stop both servers |
-
-## Configuration
-
-All configuration is optional and lives in `app/backend/.env` (copy from `.env.example`). The app runs fully without any of it.
+Everything is optional. Set these as environment variables before running `legend`, or use the Settings tab.
 
 | Variable | Purpose |
 |----------|---------|
@@ -123,17 +203,140 @@ All configuration is optional and lives in `app/backend/.env` (copy from `.env.e
 | `LEGEND_LLM_MODEL` | Model name for the chosen provider |
 | `LEGEND_LLM_BASE_URL` | Endpoint for Ollama (`http://localhost:11434`) or a custom provider |
 | `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GEMINI_API_KEY`, `GROQ_API_KEY`, `OPENROUTER_API_KEY` | Set only the one you use |
-| `LEGEND_EMBED_BACKEND` | `auto` \| `hybrid` \| `bm25` \| `chroma` (retrieval mode) |
-| `LEGEND_DATA_DIR` | Where parsed indexes and clones are cached |
+| `LEGEND_EMBED_BACKEND` | `auto` \| `hybrid` \| `bm25` \| `chroma` — how search retrieves (defaults to the best available) |
+| `LEGEND_DATA_DIR` | Where parsed indexes and clones are cached (same as `--data-dir`) |
 
-Providers and models can also be configured live from the in-app **Settings** tab.
+## Where your data lives
+
+Legend caches indexes and cloned repos under **`~/.legend/cache`** (override with `--data-dir` or `LEGEND_DATA_DIR`). Re-running on the same repo reuses the cache, so subsequent starts are fast.
+
+To reset everything, delete that folder:
+
+```powershell
+Remove-Item -Recurse -Force $HOME\.legend        # Windows
+```
+```bash
+rm -rf ~/.legend                                 # macOS/Linux
+```
+
+## Updating & uninstalling
+
+```bash
+# uvx always fetches the latest; force a refresh of its cache:
+uvx --refresh legend-lens .
+
+# pipx
+pipx upgrade legend-lens
+pipx uninstall legend-lens
+
+# pip
+pip install --upgrade legend-lens
+pip uninstall legend-lens
+```
+
+## Troubleshooting & FAQ
+
+**`uvx: command not found`** — install uv first: `pip install uv` (or the [official installer](https://docs.astral.sh/uv/getting-started/installation/)). `uvx` ships with uv, just like `npx` ships with Node.
+
+**The browser didn't open.** Open `http://127.0.0.1:8100` manually (or your `--port`). Use `--no-open` if you prefer to open it yourself.
+
+**Port already in use.** Another app (or a previous Legend) is on 8100 — run with `--port 9000` (any free port).
+
+**The "Ask" tab says no model is configured.** Install the `llm` extra and set a provider — see [Enabling AI answers](#enabling-ai-answers-bring-your-own-model). Everything else works without it.
+
+**Search feels shallow / I want semantic search.** Install the `semantic` extra (`pip install "legend-lens[semantic]"`). Without it, Legend uses a solid built-in BM25 keyword index.
+
+**My language isn't fully analyzed.** Python has the deepest support (full AST). Install the `treesitter` extra for structural parsing of Go, Java, Rust, C#, Ruby, PHP, C, C++, and more. See [Language support](#language-support).
+
+**First index of a big repo is slow.** Indexing walks the whole tree once; after that it's cached. Subsequent runs are fast.
+
+**Is any of my code sent anywhere?** No — indexing/search/graph/metrics are fully local. The only outbound traffic is the initial `git clone` (for a URL you give) and, *if* you enable AI answers, calls to the provider you configured. See [Privacy & security](#privacy--security).
+
+## Language support
+
+- **Python** — full support via the standard-library AST (symbols, call/import graph, complexity, API/DB detection).
+- **JavaScript / TypeScript** — best-effort structural parsing built in.
+- **10+ more** (Go, Java, Rust, C#, Ruby, PHP, C, C++, …) — install the `treesitter` extra to enable tree-sitter-backed parsing.
+
+Every language benefits from file/line metrics, search, the timeline, and reports even without deep parsing.
+
+## How it works
+
+Three components live side by side:
+
+| Component | What it is |
+|-----------|------------|
+| `app/` | The product — a React + Vite frontend over a thin FastAPI backend. When installed, the backend serves the pre-built UI on one port. |
+| `engine/` | The `legend` Python package: indexing, retrieval, graph, tracking, analysis. |
+| `diagrams/` | `codemap` — a standalone, stdlib-only architecture-map generator. |
+
+Indexing runs in six stages: **ingest/clone → parse (AST for Python, regex for JS/TS, tree-sitter for the rest) → build the code graph → chunk → build retrievers (BM25 + optional embeddings) → cache**. The result is an in-memory index that every feature reads from. A deeper walkthrough is in [`docs/how-it-works.html`](docs/how-it-works.html).
+
+## Privacy & security
+
+- **Local-first.** Your source is indexed, embedded, searched, graphed, tracked, and reported on entirely on your machine.
+- **Minimal outbound traffic.** Only the initial `git clone` (for a URL you provide) and — if you enable a model — LLM API calls for answers and explanations.
+- **Loopback by default.** The app binds to `127.0.0.1`.
+- **Hardened cloning.** Clone URLs are transport-allowlisted (`http`/`https`/`ssh`/`git`) and argument-injection guarded.
+- **XSS-safe UI.** Repository, LLM, and README content renders as text — an untrusted README can't run script.
+- **No telemetry.** Legend collects nothing; on-device embedding telemetry is explicitly disabled.
+
+## Run from source (development)
+
+For contributors or anyone who wants the dev servers with hot reload. **Requirements:** Python 3.10+, Node.js 18+, git.
+
+```bash
+git clone https://github.com/samratrajsharma/legend.git
+cd legend
+```
+
+**Windows (PowerShell):**
+
+```powershell
+cd app
+.\run.ps1        # creates a venv, installs deps on first run, starts both servers
+```
+
+**Any OS (manual):**
+
+```bash
+# Backend  ->  http://localhost:8100
+cd app/backend
+pip install -r requirements.txt
+python main.py
+
+# Frontend ->  http://localhost:5273   (second terminal)
+cd app/frontend
+npm install
+npm run dev
+```
+
+Then open **http://localhost:5273** and connect a repo. (In dev the UI runs on 5273 via Vite; the packaged `legend` command instead serves everything on 8100.)
+
+**Windows launcher flags:**
+
+| Command | Effect |
+|---------|--------|
+| `.\run.ps1` | Start backend (`:8100`) + frontend (`:5273`) |
+| `.\run.ps1 -Fresh` | Wipe indexed repos, caches, and timeline history, then start |
+| `.\run.ps1 -Fresh -Yes` | Same, without the confirmation prompt |
+| `.\run.ps1 -Reload` | Start with backend hot-reload |
+| `.\run.ps1 -Website` | Serve the marketing site only, on `:5300` |
+| `.\stop.ps1` | Stop both servers |
+
+**Build the distributable wheel** (bundles the frontend into the package):
+
+```bash
+python scripts/build.py      # npm build -> app/backend/web/
+python -m build              # -> dist/legend_lens-*.whl
+```
 
 ## Project structure
 
 ```
 app/
-  backend/     FastAPI REST + SSE layer over the engine (main.py -> :8100)
-  frontend/    React 19 + Vite + TypeScript UI (:5273)
+  backend/     FastAPI REST + SSE layer over the engine; serves the built UI when packaged
+  frontend/    React 19 + Vite + TypeScript UI
   run.ps1      dev launcher (backend + frontend)
 engine/
   legend/      the analysis engine (ingest, parsing, graph, retrieval,
@@ -141,28 +344,13 @@ engine/
   tests/       engine test suite
 diagrams/
   codemap/     standalone architecture-map generator
+scripts/
+  build.py     bundles the frontend into the wheel
 docs/          internals documentation
 ```
 
-## Tech stack
-
-**Backend:** FastAPI · Uvicorn · Pydantic · LiteLLM (provider-agnostic LLM routing) · ChromaDB (on-device embeddings) · python-docx / reportlab (report export).
-**Frontend:** React 19 · Vite · TypeScript.
-**Engine:** pure Python — stdlib `ast` parsing, a hand-rolled code graph, and a stdlib BM25 implementation, so the core has no heavy dependencies.
-
-## Privacy & security
-
-- **Local-first.** Your source is indexed, embedded, searched, graphed, tracked, and reported on entirely on your machine. The only outbound traffic is the initial `git clone` and — if you configure a model — LLM API calls for answers and explanations.
-- **Loopback only.** The backend binds to `127.0.0.1`; the browser reaches it through the Vite proxy.
-- **Hardened cloning.** Clone URLs are transport-allowlisted (`http`/`https`/`ssh`/`git` only) and argument-injection guarded.
-- **XSS-safe UI.** All repository, LLM, and README content renders as text — no raw HTML injection — so an untrusted README cannot run script.
-
-## Requirements
-
-- Python 3.10 or newer
-- Node.js 18 or newer
-- Git
-
 ## License
 
-MIT — see [LICENSE](LICENSE).
+Released under the **MIT License** — free to use, modify, and distribute. See [LICENSE](LICENSE) for the full text.
+
+© 2026 Samrat Raj Sharma
