@@ -1,5 +1,6 @@
 from __future__ import annotations
 import hashlib
+import hmac
 import json
 import os
 import pickle
@@ -97,6 +98,58 @@ def _cache_file(data_dir, meta, sig):
     return os.path.join(d, f"{safe}_{sig}.pkl")
 
 
+def _cache_secret(data_dir):
+    """A per-install secret used to HMAC-sign cache blobs (created once, 0600)."""
+    d = os.path.join(data_dir, "cache")
+    os.makedirs(d, exist_ok=True)
+    key_path = os.path.join(d, ".hmac_key")
+    try:
+        with open(key_path, "rb") as fh:
+            k = fh.read()
+        if len(k) >= 32:
+            return k
+    except OSError:
+        pass
+    k = os.urandom(32)
+    try:
+        with open(key_path, "wb") as fh:
+            fh.write(k)
+        try:
+            os.chmod(key_path, 0o600)
+        except OSError:
+            pass
+    except OSError:
+        pass
+    return k
+
+
+def _cache_load(path, secret):
+    """Load a cache blob only if its HMAC matches — never unpickle unverified bytes. A missing,
+    truncated or tampered file (e.g. a planted .pkl on a shared/synced data dir) is treated as a
+    cache miss and rebuilt, closing the pickle-RCE vector."""
+    try:
+        with open(path, "rb") as fh:
+            raw = fh.read()
+    except OSError:
+        return None
+    if len(raw) < 32:
+        return None
+    sig, blob = raw[:32], raw[32:]
+    if not hmac.compare_digest(sig, hmac.new(secret, blob, hashlib.sha256).digest()):
+        return None
+    try:
+        return pickle.loads(blob)
+    except Exception:
+        return None
+
+
+def _cache_dump(path, obj, secret):
+    blob = pickle.dumps(obj)
+    sig = hmac.new(secret, blob, hashlib.sha256).digest()
+    with open(path, "wb") as fh:
+        fh.write(sig + blob)
+
+
 def _build_retrievers(chunks, backend, data_dir, sig, namespace="default"):
     lexical = BM25Retriever()
     lexical.index(chunks)
@@ -145,14 +198,13 @@ def build_index(source, config=CONFIG, progress=None, use_cache=None, register=T
     sig = _signature(meta, files)
     cache = _cache_file(config.data_dir, meta, sig)
 
+    secret = _cache_secret(config.data_dir)
     parsed = graph = chunks = None
     if use_cache and os.path.exists(cache):
-        try:
-            log("Loading cached parse/graph/chunks ...")
-            with open(cache, "rb") as fh:
-                parsed, graph, chunks = pickle.load(fh)
-        except Exception:
-            parsed = graph = chunks = None
+        log("Loading cached parse/graph/chunks ...")
+        loaded = _cache_load(cache, secret)       # HMAC-verified; None on miss/tamper
+        if loaded is not None:
+            parsed, graph, chunks = loaded
 
     if parsed is None:
         log(f"Parsing {len(code_files)} code + {len(doc_files)} doc files ...")
@@ -163,8 +215,7 @@ def build_index(source, config=CONFIG, progress=None, use_cache=None, register=T
         chunks = make_chunks(parsed, meta.commit, config.chunk_max_lines)
         if use_cache:
             try:
-                with open(cache, "wb") as fh:
-                    pickle.dump((parsed, graph, chunks), fh)
+                _cache_dump(cache, (parsed, graph, chunks), secret)
             except Exception:
                 pass
 
